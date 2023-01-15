@@ -3,13 +3,13 @@
 //! A simplified implementation of the classic game "Breakout".
 
 
-use std::time::Duration;
+use std::{time::Duration, ops::Div};
 
 use bevy::{
     prelude::*,
     sprite::collide_aabb::{collide, Collision},
     sprite::MaterialMesh2dBundle,
-    time::FixedTimestep, utils::Instant,
+    time::FixedTimestep, utils::Instant, transform,
 };
 
 // Defines the amount of time that should elapse between each physics step.
@@ -57,6 +57,7 @@ fn main() {
                 .with_system(apply_velocity.after(check_for_collisions))
                 .with_system(play_collision_sound.after(check_for_collisions)),
         )
+        .add_system(apply_rotation)
         .add_system(update_scoreboard)
         .add_system(bevy::window::close_on_esc)
         .run();
@@ -182,11 +183,7 @@ fn setup(
 
     commands.spawn((
         SpriteBundle {
-            transform: Transform {
-                translation: Vec3::new(0.0, paddle_y, 0.0),
-                scale: PADDLE_SIZE,
-                ..default()
-            },
+            transform: Transform::from_xyz(0., paddle_y, 0.).with_scale(PADDLE_SIZE).with_rotation(Quat::from_euler(EulerRot::XYZ, 0., 0., 0.5)),
             sprite: Sprite {
                 color: PADDLE_COLOR,
                 ..default()
@@ -199,11 +196,7 @@ fn setup(
     .with_children(|parent| {
         parent.spawn(
             SpriteBundle {
-                transform: Transform {
-                    translation: Vec3::new(0.0, 0.0, 0.0),
-                    scale: Vec3::new(5., 10., 0.),
-                    ..default()
-                },
+                transform: Transform::from_xyz(0., 0., 0.).with_scale(Vec3::new(25., 5., 0.)),
                 sprite: Sprite {
                     color: Color::RED,
                     ..default()
@@ -251,12 +244,11 @@ fn setup(
 }
 
 fn move_paddle(
-    mut keyboard_input: ResMut<Input<KeyCode>>,
+    keyboard_input: ResMut<Input<KeyCode>>,
     mut query: Query<&mut Velocity, With<Paddle>>,
 ) {
     let mut paddle_velocity = query.single_mut();
     let mut new_velocity = paddle_velocity.clone().normalize_or_zero();
-    
     
     if keyboard_input.any_pressed([KeyCode::D, KeyCode::A, KeyCode::W, KeyCode::S]) {
 
@@ -290,6 +282,29 @@ fn apply_velocity(mut query: Query<(&mut Transform, &mut Velocity)>) {
 
         **velocity *= Vec2::new(0.8, 0.8); // drag
     }
+}
+
+fn apply_rotation(
+    mut query: Query<&mut Transform, With<Paddle>>,
+    windows: Res<Windows>
+) {
+    let window = windows.get_primary().unwrap();
+    let window_size = Vec2::new(window.width(), window.height());
+    let mut paddle_transform = query.get_single_mut().unwrap();
+
+    if let Some(cursor_position) = window.cursor_position() {
+        let p1 = paddle_transform.translation.truncate();
+        let p2 = cursor_position - (window_size.div(2.));
+
+        paddle_transform.rotation = Quat::from_euler(EulerRot::XYZ, 0., 0., vector_angle(p1, p2));
+    } else {
+        // cursor is not inside the window
+    }
+}
+
+fn vector_angle(p1: Vec2, p2: Vec2) -> f32 {
+    let v = p2 - p1;
+    f32::atan2(v.y, v.x)
 }
 
 fn update_scoreboard(scoreboard: Res<Scoreboard>, mut query: Query<&mut Text>) {
