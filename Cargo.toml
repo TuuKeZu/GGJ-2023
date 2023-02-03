@@ -9,4 +9,4 @@ edition = "2021"
 resolver = "2" # Important! wgpu/Bevy needs this!
 
 [dependencies]
-bevy = "0.9.1"
+bevy = {version="0.9.1", features=["dynamic"]}
