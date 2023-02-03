@@ -1,46 +1,32 @@
-//! A simplified implementation of the classic game "Breakout".
-
-use std::{any::Any, ops::Div, time::Duration};
+use std::ops::Div;
 
 use bevy::{
+    math::*,
     prelude::*,
     sprite::collide_aabb::{collide, Collision},
-    sprite::MaterialMesh2dBundle,
     time::FixedTimestep,
-    transform,
-    utils::Instant,
 };
 
 // Defines the amount of time that should elapse between each physics step.
-const TIME_STEP: f32 = 1.0 / 240.;
+const TIME_STEP: f32 = 1.0 / 360.;
 
 // These constants are defined in `Transform` units.
-// Using the default 2D camera they correspond 1:1 with screen pixels.
-const PADDLE_SIZE: Vec3 = Vec3::new(20.0, 20.0, 0.0);
-const GAP_BETWEEN_PADDLE_AND_FLOOR: f32 = 60.0;
-const PADDLE_SPEED: f32 = 250.0;
-// How close can the paddle get to the wall
-
-const WALL_THICKNESS: f32 = 10.0;
-// x coordinates
-const LEFT_WALL: f32 = -450.;
-const RIGHT_WALL: f32 = 450.;
-// y coordinates
-const BOTTOM_WALL: f32 = -300.;
-const TOP_WALL: f32 = 300.;
 
 const SCOREBOARD_FONT_SIZE: f32 = 40.0;
 const SCOREBOARD_TEXT_PADDING: Val = Val::Px(5.0);
 
-const BACKGROUND_COLOR: Color = Color::rgb(0.9, 0.9, 0.9);
+const BACKGROUND_COLOR: Color = Color::rgb(0.1, 0.1, 0.1);
 const PADDLE_COLOR: Color = Color::rgb(0.3, 0.3, 0.7);
 const WALL_COLOR: Color = Color::rgb(0.1, 0.5, 0.5);
-const TEXT_COLOR: Color = Color::rgb(0.5, 0.5, 1.0);
+const TEXT_COLOR: Color = Color::rgb(0.8, 0.8, 1.8);
 const SCORE_COLOR: Color = Color::rgb(1.0, 0.5, 0.5);
+const ERROR_COLOR: Color = Color::rgb(1.0, 0., 0.);
 
-const CENTER_OBJECT_SIZE: Vec2 = Vec2::new(50., 50.);
+const TILE_SIZE: f32 = 16.;
 
-const TILE_SIZE: f32 = 32.;
+/// todo
+/// - [X] impl new for Cursor component
+/// -[ ] create utils.rs
 
 fn main() {
     App::new()
@@ -52,16 +38,50 @@ fn main() {
             SystemSet::new()
                 .with_run_criteria(FixedTimestep::step(TIME_STEP as f64))
                 .with_system(move_cursor)
-                .with_system(handle_click),
+                .with_system(handle_place)
+                .with_system(handle_cursor_visibility)
+                .with_system(handle_collisions)
+                .with_system(handle_sell),
         )
         .add_system(update_scoreboard)
         .add_system(bevy::window::close_on_esc)
         .run();
 }
 
+#[derive(Component)]
+struct Collider;
+
+#[derive(Bundle, Default)]
+struct Cursor {
+    sprite_bundle: SpriteBundle,
+    grid_cursor: GridCursor,
+}
+
+impl Cursor {
+    fn new() -> Self {
+        Self {
+            sprite_bundle: SpriteBundle {
+                transform: Transform::from_xyz(0., 0., 0.)
+                    .with_rotation(Quat::from_euler(EulerRot::XYZ, 0., 0., 0.))
+                    .with_scale(Vec3 {
+                        x: TILE_SIZE,
+                        y: TILE_SIZE,
+                        z: 0.,
+                    }),
+                sprite: Sprite {
+                    color: PADDLE_COLOR,
+                    ..default()
+                },
+                ..default()
+            },
+            ..default()
+        }
+    }
+}
+
 #[derive(Component, Default)]
 struct GridCursor {
-    is_locked: bool,
+    can_place: bool,
 }
 
 #[derive(Component)]
@@ -70,35 +90,41 @@ enum Placeable {
 }
 
 #[derive(Bundle)]
-struct AssemblingMachine {
+struct Turret {
     sprite_bundle: SpriteBundle,
 }
 
-impl AssemblingMachine {
-    fn new() -> Self {
-        Self {
-            sprite_bundle: SpriteBundle {
-                transform: Transform::from_xyz(0., 0., 0.).with_scale(Vec3::new(3., 3., 3.)),
-                sprite: Sprite {
-                    color: WALL_COLOR,
+impl Turret {
+    fn new() -> (Self, Collider) {
+        (
+            Self {
+                sprite_bundle: SpriteBundle {
+                    transform: Transform::from_xyz(0., 0., 0.).with_scale(vec3(3., 3., 3.)),
+                    sprite: Sprite {
+                        color: WALL_COLOR,
+                        ..default()
+                    },
                     ..default()
                 },
-                ..default()
             },
-        }
+            Collider,
+        )
     }
 
-    fn with_transform(transform: Transform) -> Self {
-        Self {
-            sprite_bundle: SpriteBundle {
-                transform,
-                sprite: Sprite {
-                    color: WALL_COLOR,
+    fn with_transform(transform: Transform) -> (Self, Collider) {
+        (
+            Self {
+                sprite_bundle: SpriteBundle {
+                    transform,
+                    sprite: Sprite {
+                        color: WALL_COLOR,
+                        ..default()
+                    },
                     ..default()
                 },
-                ..default()
             },
-        }
+            Collider,
+        )
     }
 }
 
@@ -119,29 +145,9 @@ fn setup(
     commands.spawn(Camera2dBundle::default());
 
     // Cursor
-    commands
-        .spawn((
-            {
-                SpriteBundle {
-                    transform: Transform::from_xyz(0., 0., 0.)
-                        .with_rotation(Quat::from_euler(EulerRot::XYZ, 0., 0., 0.))
-                        .with_scale(Vec3 {
-                            x: TILE_SIZE,
-                            y: TILE_SIZE,
-                            z: 0.,
-                        }),
-                    sprite: Sprite {
-                        color: PADDLE_COLOR,
-                        ..default()
-                    },
-                    ..default()
-                }
-            },
-            GridCursor { is_locked: true },
-        ))
-        .with_children(|parent| {
-            parent.spawn((AssemblingMachine::new(), Placeable::AssemblingMachine));
-        });
+    commands.spawn(Cursor::new()).with_children(|parent| {
+        parent.spawn((Turret::new(), Placeable::AssemblingMachine));
+    });
 
     // Scoreboard
     commands.spawn(
@@ -172,50 +178,111 @@ fn setup(
     );
 }
 
-fn move_cursor(mut query: Query<(&mut Transform, &mut GridCursor)>, windows: Res<Windows>) {
+fn ease(x: f32) -> f32 {
+    0.5 - (x.max(0.).min(1.) * std::f32::consts::PI).cos() / 2.
+}
+
+fn move_cursor(mut query: Query<&mut Transform, With<GridCursor>>, windows: Res<Windows>) {
     let window = windows.get_primary().unwrap();
     let window_size = Vec2::new(window.width(), window.height());
 
     if let Some(cursor_position) = window.cursor_position() {
-        let (mut cursor_transform, cursor) = query.get_single_mut().unwrap();
+        let mut cursor_transform = query.get_single_mut().unwrap();
         let mut cursor_position = cursor_position - (window_size.div(2.));
 
-        if cursor.is_locked {
-            cursor_position = Vec2 {
-                x: f32::floor(cursor_position.x / TILE_SIZE) * TILE_SIZE,
-                y: f32::floor(cursor_position.y / TILE_SIZE) * TILE_SIZE,
-            } + Vec2::new(TILE_SIZE / 2., TILE_SIZE / 2.);
-        }
+        cursor_position =
+            (cursor_position / TILE_SIZE).floor() * TILE_SIZE + Vec2::splat(TILE_SIZE / 2.);
 
         // info!("{}", cursor_position);
 
-        cursor_transform.translation = cursor_position.extend(0.);
+        let prevt = cursor_transform.translation;
+        let delta = cursor_position.extend(0.) - prevt;
+        let dist = delta.length();
+        const EASE_DIST: f32 = 5.0;
+        cursor_transform.translation = prevt + delta * ease(dist / EASE_DIST);
     } else {
         // Window is not active => game should be paused
     }
 }
 
-fn handle_click(
+fn handle_cursor_visibility(
+    cursor_q: Query<&GridCursor>,
+    mut child_q: Query<&mut Sprite, With<Placeable>>,
+) {
+    let cursor = cursor_q.get_single().unwrap();
+    let mut sprite = child_q.get_single_mut().unwrap();
+
+    sprite.color = if cursor.can_place {
+        WALL_COLOR
+    } else {
+        ERROR_COLOR
+    };
+}
+
+fn handle_place(
     mut commands: Commands,
-    mut cursor_q: Query<(&mut Transform, &mut GridCursor, &mut Children), Without<Placeable>>,
+    cursor_q: Query<(&Transform, &GridCursor), Without<Placeable>>,
     child_q: Query<(&Transform, &Placeable)>,
     buttons: Res<Input<MouseButton>>,
 ) {
-    if buttons.just_pressed(MouseButton::Left) {
-        if let Ok((cursor_transform, cursor, mut children)) = cursor_q.get_single_mut() {
-            //info!("yeet");
-            let child = children.iter().next().unwrap();
-            let (transform, placeable) = child_q.get(*child).unwrap();
+    let (cursor_transform, cursor) = cursor_q.get_single().unwrap();
+    let (transform, placeable) = child_q.get_single().unwrap();
 
-            match placeable {
-                Placeable::AssemblingMachine => {
-                    let cursor_transform =
-                        cursor_transform.with_scale(cursor_transform.scale * transform.scale);
-                    commands.spawn(AssemblingMachine::with_transform(cursor_transform));
-                }
+    if !cursor.can_place {
+        return;
+    }
+
+    if buttons.just_pressed(MouseButton::Left) {
+        //info!("yeet");
+        match placeable {
+            Placeable::AssemblingMachine => {
+                let cursor_transform =
+                    cursor_transform.with_scale(cursor_transform.scale * transform.scale);
+                commands.spawn(Turret::with_transform(cursor_transform));
             }
-        } else {
-            // no item in hand
+        }
+    }
+}
+
+fn handle_collisions(
+    mut cursor_q: Query<(&Transform, &mut GridCursor)>,
+    child_q: Query<&Transform, With<Placeable>>,
+    collider_q: Query<(&Transform, &Collider), Without<GridCursor>>,
+) {
+    let (cursor_transform, mut cursor) = cursor_q.single_mut();
+    let transform = child_q.single();
+    let transform = transform.with_scale(transform.scale * cursor_transform.scale);
+
+    for (collider_transform, _c) in &collider_q {
+        let collision = collide(
+            cursor_transform.translation,
+            transform.scale.truncate(),
+            collider_transform.translation,
+            collider_transform.scale.truncate(),
+        );
+
+        cursor.can_place = collision.is_none();
+    }
+}
+
+fn handle_sell(
+    mut commands: Commands,
+    mut cursor_q: Query<&Transform, With<GridCursor>>,
+    collider_q: Query<(&Transform, Entity, &Collider), Without<GridCursor>>,
+    buttons: Res<Input<MouseButton>>,
+) {
+    let cursor_transform = cursor_q.single_mut();
+
+    if buttons.just_pressed(MouseButton::Right) {
+        for (collider_transform, entity, _c) in &collider_q {
+            if let Some(Collision::Inside) = collide(
+                cursor_transform.translation,
+                cursor_transform.scale.truncate(),
+                collider_transform.translation,
+                collider_transform.scale.truncate(),
+            ) {
+                commands.entity(entity).despawn();
+            }
         }
     }
 }
