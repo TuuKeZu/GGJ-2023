@@ -1,6 +1,6 @@
 //! A simplified implementation of the classic game "Breakout".
 
-use std::{ops::Div, time::Duration};
+use std::{any::Any, ops::Div, time::Duration};
 
 use bevy::{
     prelude::*,
@@ -65,7 +65,9 @@ struct GridCursor {
 }
 
 #[derive(Component)]
-struct InHand {}
+enum Placeable {
+    AssemblingMachine,
+}
 
 #[derive(Bundle)]
 struct AssemblingMachine {
@@ -77,6 +79,19 @@ impl AssemblingMachine {
         Self {
             sprite_bundle: SpriteBundle {
                 transform: Transform::from_xyz(0., 0., 0.).with_scale(Vec3::new(3., 3., 3.)),
+                sprite: Sprite {
+                    color: WALL_COLOR,
+                    ..default()
+                },
+                ..default()
+            },
+        }
+    }
+
+    fn with_transform(transform: Transform) -> Self {
+        Self {
+            sprite_bundle: SpriteBundle {
+                transform,
                 sprite: Sprite {
                     color: WALL_COLOR,
                     ..default()
@@ -125,7 +140,7 @@ fn setup(
             GridCursor { is_locked: true },
         ))
         .with_children(|parent| {
-            parent.spawn(AssemblingMachine::new());
+            parent.spawn((AssemblingMachine::new(), Placeable::AssemblingMachine));
         });
 
     // Scoreboard
@@ -182,12 +197,26 @@ fn move_cursor(mut query: Query<(&mut Transform, &mut GridCursor)>, windows: Res
 
 fn handle_click(
     mut commands: Commands,
-    mut query: Query<(&mut Transform, &mut GridCursor)>,
+    mut cursor_q: Query<(&mut Transform, &mut GridCursor, &mut Children), Without<Placeable>>,
+    child_q: Query<(&Transform, &Placeable)>,
     buttons: Res<Input<MouseButton>>,
 ) {
     if buttons.just_pressed(MouseButton::Left) {
-        let (mut cursor_transform, cursor) = query.get_single_mut().unwrap();
-        info!("yeet");
+        if let Ok((cursor_transform, cursor, mut children)) = cursor_q.get_single_mut() {
+            //info!("yeet");
+            let child = children.iter().next().unwrap();
+            let (transform, placeable) = child_q.get(*child).unwrap();
+
+            match placeable {
+                Placeable::AssemblingMachine => {
+                    let cursor_transform =
+                        cursor_transform.with_scale(cursor_transform.scale * transform.scale);
+                    commands.spawn(AssemblingMachine::with_transform(cursor_transform));
+                }
+            }
+        } else {
+            // no item in hand
+        }
     }
 }
 
