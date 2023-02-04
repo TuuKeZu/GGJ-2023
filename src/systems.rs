@@ -242,19 +242,40 @@ pub fn handle_place(
 pub fn handle_collisions(
     mut cursor_q: Query<&mut GridCursor>,
     child_q: Query<&Transform, With<Selected>>,
-    collider_q: Query<(&Transform, &Collider), (Without<GridCursor>, Without<Selected>)>,
+    collider_q: Query<
+        (&Transform, &Collider),
+        (Without<GridCursor>, Without<Selected>, Without<Turret>),
+    >,
+    turret_q: Query<(&Transform, &Collider), (With<Turret>, Without<Selected>)>,
 ) {
     let mut cursor = cursor_q.single_mut();
-    if let Ok(transform) = child_q.get_single() {
+    if let Ok(c_transform) = child_q.get_single() {
         let cursor_transform = cursor.last_target_pos.extend(0.);
-        let transform = transform.with_scale((transform.scale * SPRITE_SIZE) * TILE_SIZE);
+        let c_transform = c_transform.with_scale((c_transform.scale * SPRITE_SIZE) * TILE_SIZE);
 
         let mut colliding = false;
 
-        for (collider_transform, _c) in &collider_q {
+        for (collider_transform, _c) in turret_q.iter() {
+            let collider_transform =
+                collider_transform.with_scale((collider_transform.scale / 2.) * TILE_SIZE);
+
             let collision = collide(
                 cursor_transform,
-                transform.scale.truncate(),
+                c_transform.scale.truncate(),
+                collider_transform.translation,
+                collider_transform.scale.truncate(),
+            );
+
+            if collision.is_some() {
+                colliding = true;
+                break;
+            }
+        }
+
+        for (collider_transform, _c) in collider_q.iter() {
+            let collision = collide(
+                cursor_transform,
+                c_transform.scale.truncate(),
                 collider_transform.translation,
                 collider_transform.scale.truncate(),
             );
