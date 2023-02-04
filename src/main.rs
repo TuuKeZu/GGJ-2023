@@ -33,6 +33,7 @@ pub const TILE_SIZE: f32 = 64.;
 pub const SPRITE_SIZE: f32 = 16.; // DO NOT TOUCH!!!!!
 
 pub const ENEMY_LAYER: f32 = 1.;
+pub const MAP_SIZE: i32 = 16; // Map width and height are 2 * MAP_SIZE
 
 pub type Texture = bevy::prelude::Handle<bevy::prelude::Image>;
 

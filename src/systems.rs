@@ -2,7 +2,6 @@ use bevy::{
     core_pipeline::bloom::BloomSettings,
     math::*,
     prelude::*,
-    render::render_resource::{Extent3d, TextureDimension, TextureFormat},
     sprite::collide_aabb::{collide, Collision},
 };
 
@@ -11,59 +10,10 @@ use crate::interpolation::ease;
 use crate::*;
 
 // Add the game's entities to our world
-pub fn setup(
-    mut commands: Commands,
-    windows: Res<Windows>,
-    asset_server: Res<AssetServer>,
-    mut images: ResMut<Assets<Image>>,
-) {
+pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // level
     let level = LevelHandle(asset_server.load("map.json"));
     commands.insert_resource(level);
-
-    // grid
-    let window = windows.get_primary().unwrap();
-    let size = Extent3d {
-        width: window.width() as u32,
-        height: window.height() as u32,
-        ..default()
-    };
-    let mut image = Image::new_fill(
-        size,
-        TextureDimension::D2,
-        &[0, 0, 0, 0],
-        TextureFormat::Rgba8Unorm,
-    );
-
-    for (y, row) in image
-        .data
-        .chunks_mut(window.width() as usize * 4)
-        .enumerate()
-    {
-        for (x, pixel) in row.chunks_mut(4).enumerate() {
-            match (y % TILE_SIZE as usize, (x + 1) % TILE_SIZE as usize) {
-                (7..=8, _) | (_, 0..=1) => {
-                    pixel[0] = 15;
-                    pixel[1] = 15;
-                    pixel[2] = 15;
-                    pixel[3] = 255;
-                }
-                _ => {}
-            };
-        }
-    }
-
-    let image_handle = images.add(image);
-
-    commands.spawn(SpriteBundle {
-        // transform: Transform::from_xyz(0., 0., -1.).with_scale(vec3(1., 1., 1.)),
-        sprite: Sprite {
-            custom_size: Some(Vec2::new(window.width(), window.height())),
-            ..default()
-        },
-        texture: image_handle,
-        ..default()
-    });
 
     // Camera
     commands.spawn((
@@ -196,6 +146,20 @@ pub fn spawn_level(
 
         // Move camera to middle of the map based on naive assumptions
         camera_transform.translation += (*end - *start).extend(0.) / 2.;
+
+        for x in -MAP_SIZE..MAP_SIZE {
+            for y in -MAP_SIZE..MAP_SIZE {
+                commands.spawn(
+                    Tile::new(&asset_server)
+                        .with_position(Vec3 {
+                            x: x as f32 * TILE_SIZE,
+                            y: y as f32 * TILE_SIZE,
+                            z: 0.,
+                        })
+                        .with_texture(asset_server.load("resources/dirt.png")),
+                );
+            }
+        }
 
         for pos in tiles {
             path.positions.push_back(PathTile::new(*pos));
