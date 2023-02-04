@@ -183,10 +183,7 @@ pub fn spawn_level(
 
         commands.spawn(
             Tile::new(&asset_server)
-                .with_sprite(Sprite {
-                    color: START_COLOR,
-                    ..default()
-                })
+                .with_texture(asset_server.load("resources/hole.png"))
                 .with_position(start.extend(0.)),
         );
 
@@ -196,10 +193,7 @@ pub fn spawn_level(
 
         commands.spawn(
             Tile::new(&asset_server)
-                .with_sprite(Sprite {
-                    color: END_COLOR,
-                    ..default()
-                })
+                .with_texture(asset_server.load("resources/hole.png"))
                 .with_position(end.extend(0.)),
         );
 

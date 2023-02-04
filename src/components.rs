@@ -3,9 +3,7 @@ use std::collections::VecDeque;
 use bevy::reflect::TypeUuid;
 use bevy::{math::*, prelude::*};
 
-use crate::{
-    Texture, CURSOR_COLOR, ENEMY_LAYER, SPRITE_SIZE, TILE_COLOR, TILE_SIZE, TIME_STEP, WALL_COLOR,
-};
+use crate::{Texture, CURSOR_COLOR, ENEMY_LAYER, SPRITE_SIZE, TILE_SIZE, TIME_STEP, WALL_COLOR};
 
 #[derive(serde::Deserialize, TypeUuid, Debug)]
 #[uuid = "413be529-bfeb-41b3-9db0-4b8b380a2c46"]
@@ -138,8 +136,8 @@ impl Tile {
         self
     }
 
-    pub fn with_sprite(mut self, sprite: Sprite) -> Self {
-        self.sprite_bundle.sprite = sprite;
+    pub fn with_texture(mut self, texture: Texture) -> Self {
+        self.sprite_bundle.texture = texture;
         self
     }
 }
