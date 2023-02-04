@@ -3,7 +3,9 @@ use std::collections::VecDeque;
 use bevy::reflect::TypeUuid;
 use bevy::{math::*, prelude::*};
 
-use crate::{Texture, CURSOR_COLOR, SPRITE_SIZE, TILE_COLOR, TILE_SIZE, TIME_STEP, WALL_COLOR};
+use crate::{
+    Texture, CURSOR_COLOR, ENEMY_LAYER, SPRITE_SIZE, TILE_COLOR, TILE_SIZE, TIME_STEP, WALL_COLOR,
+};
 
 #[derive(serde::Deserialize, TypeUuid, Debug)]
 #[uuid = "413be529-bfeb-41b3-9db0-4b8b380a2c46"]
@@ -120,14 +122,11 @@ pub struct Tile {
 }
 
 impl Tile {
-    pub fn new() -> Self {
+    pub fn new(asset_server: &Res<AssetServer>) -> Self {
         Self {
             sprite_bundle: SpriteBundle {
-                transform: Transform::from_xyz(0., 0., 0.).with_scale(Vec3::splat(TILE_SIZE)),
-                sprite: Sprite {
-                    color: TILE_COLOR,
-                    ..default()
-                },
+                transform: Transform::from_scale(Vec2::splat(TILE_SIZE / SPRITE_SIZE).extend(0.)),
+                texture: asset_server.load("resources/path.png"),
                 ..default()
             },
             collider: Collider,
@@ -155,8 +154,9 @@ impl EnemyBundle {
     pub fn new(enemy: Enemy, asset_server: &Res<AssetServer>) -> Self {
         Self {
             sprite_bundle: SpriteBundle {
-                transform: Transform::from_xyz(0., 0., 0.)
-                    .with_scale(Vec3::splat(TILE_SIZE / SPRITE_SIZE)),
+                transform: Transform::from_scale(
+                    Vec2::splat(TILE_SIZE / SPRITE_SIZE).extend(ENEMY_LAYER),
+                ),
                 texture: enemy.sprite(asset_server),
                 ..default()
             },

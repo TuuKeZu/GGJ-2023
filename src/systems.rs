@@ -99,6 +99,7 @@ pub fn setup(
 
 pub fn spawn_level(
     mut commands: Commands,
+    asset_server: Res<AssetServer>,
     level: Res<LevelHandle>,
     mut levels: ResMut<Assets<Level>>,
     mut state: ResMut<State<AppState>>,
@@ -120,7 +121,7 @@ pub fn spawn_level(
         path.positions.push_back(PathTile::new(*start));
 
         commands.spawn(
-            Tile::new()
+            Tile::new(&asset_server)
                 .with_sprite(Sprite {
                     color: START_COLOR,
                     ..default()
@@ -133,7 +134,7 @@ pub fn spawn_level(
         path.positions.push_front(PathTile::new(*end));
 
         commands.spawn(
-            Tile::new()
+            Tile::new(&asset_server)
                 .with_sprite(Sprite {
                     color: END_COLOR,
                     ..default()
@@ -146,7 +147,7 @@ pub fn spawn_level(
 
         for pos in tiles {
             path.positions.push_back(PathTile::new(*pos));
-            commands.spawn(Tile::new().with_position(pos.extend(0.)));
+            commands.spawn(Tile::new(&asset_server).with_position(pos.extend(0.)));
         }
 
         state.set(AppState::Level).unwrap();
@@ -336,7 +337,7 @@ pub fn game_tick(
                 },
                 &asset_server,
             )
-            .with_position(path.start_position.extend(0.)),
+            .with_position(path.start_position.extend(ENEMY_LAYER)),
         );
     }
 
@@ -345,9 +346,11 @@ pub fn game_tick(
             let next_pos = next_tile.position;
             let prev_pos = enemy_transform.translation.xy();
             let newp = (next_pos - prev_pos).normalize_or_zero() * enemy.speed() + prev_pos;
-            enemy_transform.translation = newp.extend(0.);
+            enemy_transform.translation = newp.extend(ENEMY_LAYER);
 
-            if (enemy_transform.translation).abs_diff_eq(next_pos.extend(0.), TILE_SIZE / 20.) {
+            if (enemy_transform.translation)
+                .abs_diff_eq(next_pos.extend(ENEMY_LAYER), TILE_SIZE / 20.)
+            {
                 enemy.idx += 1;
             }
         };
