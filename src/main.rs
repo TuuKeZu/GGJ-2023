@@ -120,7 +120,7 @@ impl Cursor {
 
 #[derive(Component, Debug, Default)]
 struct GridCursor {
-    can_place: bool,
+    can_place: u8,
     last_target_pos: Vec2,
     last_sample: f32,
 }
@@ -417,6 +417,9 @@ fn move_cursor(
             // if the target grid has changed
             grid_cursor.last_target_pos = target_pos_grid;
             grid_cursor.last_sample = elapsed - 0.1;
+            grid_cursor.can_place &= 0x01;
+        } else {
+            grid_cursor.can_place |= 0x10;
         }
     } else {
         // Window is not active => game should be paused
@@ -430,7 +433,7 @@ fn handle_cursor_visibility(
     let cursor = cursor_q.get_single().unwrap();
     let mut sprite = child_q.get_single_mut().unwrap();
 
-    sprite.color = if cursor.can_place {
+    sprite.color = if cursor.can_place == 0x11 {
         WALL_COLOR
     } else {
         ERROR_COLOR
@@ -447,7 +450,7 @@ fn handle_place(
     let (cursor_transform, cursor) = cursor_q.get_single().unwrap();
     let (transform, placeable) = child_q.get_single().unwrap();
 
-    if !cursor.can_place {
+    if cursor.can_place != 0x11 {
         return;
     }
 
@@ -492,7 +495,11 @@ fn handle_collisions(
             break;
         }
     }
-    cursor.can_place = !colliding;
+    if colliding {
+        cursor.can_place &= 0x10;
+    } else {
+        cursor.can_place |= 0x01;
+    }
 }
 
 fn handle_sell(
