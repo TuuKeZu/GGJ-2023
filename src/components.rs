@@ -145,19 +145,19 @@ impl Tile {
 }
 
 #[derive(Bundle)]
-pub struct PotatoBundle {
+pub struct EnemyBundle {
     pub sprite_bundle: SpriteBundle,
-    pub potato: Potato,
+    pub enemy: Enemy,
 }
 
-impl PotatoBundle {
-    pub fn new(potato: Potato) -> Self {
+impl EnemyBundle {
+    pub fn new(enemy: Enemy) -> Self {
         Self {
             sprite_bundle: SpriteBundle {
                 transform: Transform::from_xyz(0., 0., 0.).with_scale(Vec3::splat(1.)),
                 ..default()
             },
-            potato,
+            enemy,
         }
     }
 
@@ -173,8 +173,23 @@ impl PotatoBundle {
 }
 
 #[derive(Component)]
-pub struct Potato {
+pub struct Enemy {
+    pub kind: EnemyKind,
     pub idx: usize,
+}
+
+impl Enemy {
+    pub fn speed(&self) -> f32 {
+        match self.kind {
+            EnemyKind::Potato => 0.2,
+            EnemyKind::Carrot => 0.4,
+        }
+    }
+}
+
+pub enum EnemyKind {
+    Potato,
+    Carrot,
 }
 
 #[derive(Resource, Default, Debug)]

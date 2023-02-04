@@ -312,31 +312,30 @@ pub fn game_tick(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut path: ResMut<Path>, //
-    mut potato_q: Query<(&mut Transform, &mut Potato)>,
-    time: Res<Time>,
+    mut enemy_q: Query<(&mut Transform, &mut Enemy)>,
 ) {
-    if potato_q.iter().count() < 1 {
-        let elapsed = time.elapsed_seconds();
+    if enemy_q.iter().count() < 1 {
         let texture = asset_server.load("resources/potato.png");
 
         commands.spawn(
-            PotatoBundle::new(Potato { idx: 0 })
-                .with_texture(texture)
-                .with_position(path.start_position.extend(0.)),
+            EnemyBundle::new(Enemy {
+                kind: EnemyKind::Potato,
+                idx: 0,
+            })
+            .with_texture(texture)
+            .with_position(path.start_position.extend(0.)),
         );
-
-        info!("Spawned potato at {elapsed}");
     }
 
-    for (mut potato_transform, mut potato) in potato_q.iter_mut() {
-        if let Some(next_tile) = path.positions.get_mut(potato.idx + 1) {
+    for (mut enemy_transform, mut enemy) in enemy_q.iter_mut() {
+        if let Some(next_tile) = path.positions.get_mut(enemy.idx + 1) {
             let next_pos = next_tile.position;
-            let prev_pos = potato_transform.translation.xy();
-            let newp = (next_pos - prev_pos).normalize_or_zero() * 0.2 + prev_pos;
-            potato_transform.translation = newp.extend(0.);
+            let prev_pos = enemy_transform.translation.xy();
+            let newp = (next_pos - prev_pos).normalize_or_zero() * enemy.speed() + prev_pos;
+            enemy_transform.translation = newp.extend(0.);
 
-            if (potato_transform.translation).abs_diff_eq(next_pos.extend(0.), TILE_SIZE / 20.) {
-                potato.idx += 1;
+            if (enemy_transform.translation).abs_diff_eq(next_pos.extend(0.), TILE_SIZE / 20.) {
+                enemy.idx += 1;
             }
         };
     }
