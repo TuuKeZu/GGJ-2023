@@ -30,13 +30,9 @@ pub const START_COLOR: Color = Color::rgb(0., 1., 0.);
 pub const END_COLOR: Color = Color::rgb(1., 0., 0.);
 
 pub const TILE_SIZE: f32 = 64.;
-pub const SPRITE_SIZE: f32 = 16.;
+pub const SPRITE_SIZE: f32 = 16.; // DO NOT TOUCH!!!!!
 
 pub type Texture = bevy::prelude::Handle<bevy::prelude::Image>;
-
-/// todo
-/// - [X] impl new for Cursor component
-/// -[ ] create utils.rs
 
 fn main() {
     App::new()
