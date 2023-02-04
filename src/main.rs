@@ -13,7 +13,7 @@ use ui::*;
 
 // Defines the amount of time that should elapse between each physics step.
 pub const TIME_STEP: f32 = 1.0 / 360.;
-pub const TICK_STEP: f32 = 1.0 / 5.;
+pub const TICK_STEP: f32 = 1.0 / 30.;
 
 // These constants are defined in `Transform` units.
 

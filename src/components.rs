@@ -170,7 +170,6 @@ pub struct Path {
 
 #[derive(Default, Debug)]
 pub struct PathTile {
-    pub state: TileState,
     pub position: Vec2,
 }
 
@@ -180,24 +179,6 @@ impl PathTile {
             position,
             ..default()
         }
-    }
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub enum TileState {
-    Free,
-    Occupied,
-}
-
-impl TileState {
-    pub fn is_free(&self) -> bool {
-        *self == Self::Free
-    }
-}
-
-impl Default for TileState {
-    fn default() -> Self {
-        Self::Free
     }
 }
 

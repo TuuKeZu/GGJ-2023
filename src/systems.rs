@@ -328,35 +328,23 @@ pub fn game_tick(
                 .with_position(path.start_position.extend(0.)),
         );
 
-        path.positions[0].state = TileState::Occupied;
         info!("Spawned potato");
     }
 
     for (mut potato_transform, mut potato) in potato_q.iter_mut() {
-        if let Some(next_position) = path.positions.get_mut(potato.idx + 1) {
-            if next_position.state == TileState::Free {
-                // move the potato
-                potato_transform.translation = next_position.position.extend(0.);
+        if let Some(next_tile) = path.positions.get_mut(potato.idx + 1) {
+            let next_position = next_tile.position;
+            let prev_pos = potato_transform.translation.xy();
+            let delta = next_position - prev_pos;
+            let newp = prev_pos + delta * 0.2; //ease(TICK_STEP / TIME_STEP);
+                                               // move the potato
+            potato_transform.translation = newp.extend(0.);
 
-                // occupy the next tile
-                next_position.state = TileState::Occupied;
-
-                // freet he current tile
-
-                // set current tile to new
+            if (potato_transform.translation).abs_diff_eq(next_position.extend(0.), TILE_SIZE / 2.)
+            {
                 potato.idx += 1;
-                moved = true;
             }
-        } else {
-            potato_transform.translation = path.end_position.extend(0.);
-            potato.idx = 0;
-            moved = true;
         };
-
-        if moved {
-            let current_position = &mut path.positions[potato.idx];
-            current_position.state = TileState::Free;
-        }
     }
 }
 
