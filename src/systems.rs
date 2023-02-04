@@ -313,9 +313,10 @@ pub fn game_tick(
     asset_server: Res<AssetServer>,
     mut path: ResMut<Path>, //
     mut potato_q: Query<(&mut Transform, &mut Potato)>,
+    time: Res<Time>,
 ) {
-    let mut moved = false;
-    if potato_q.iter().count() < 7 {
+    if potato_q.iter().count() < 1 {
+        let elapsed = time.elapsed_seconds();
         let texture = asset_server.load("resources/potato.png");
 
         commands.spawn(
@@ -324,20 +325,17 @@ pub fn game_tick(
                 .with_position(path.start_position.extend(0.)),
         );
 
-        info!("Spawned potato");
+        info!("Spawned potato at {elapsed}");
     }
 
     for (mut potato_transform, mut potato) in potato_q.iter_mut() {
         if let Some(next_tile) = path.positions.get_mut(potato.idx + 1) {
-            let next_position = next_tile.position;
+            let next_pos = next_tile.position;
             let prev_pos = potato_transform.translation.xy();
-            let delta = next_position - prev_pos;
-            let newp = prev_pos + delta * 0.2; //ease(TICK_STEP / TIME_STEP);
-                                               // move the potato
+            let newp = (next_pos - prev_pos).normalize_or_zero() * 0.2 + prev_pos;
             potato_transform.translation = newp.extend(0.);
 
-            if (potato_transform.translation).abs_diff_eq(next_position.extend(0.), TILE_SIZE / 2.)
-            {
+            if (potato_transform.translation).abs_diff_eq(next_pos.extend(0.), TILE_SIZE / 20.) {
                 potato.idx += 1;
             }
         };

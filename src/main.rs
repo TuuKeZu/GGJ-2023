@@ -13,7 +13,6 @@ use ui::*;
 
 // Defines the amount of time that should elapse between each physics step.
 pub const TIME_STEP: f32 = 1.0 / 360.;
-pub const TICK_STEP: f32 = 1.0 / 30.;
 
 // These constants are defined in `Transform` units.
 
@@ -59,11 +58,7 @@ fn main() {
                 .with_system(handle_place.after(handle_collisions))
                 .with_system(handle_cursor_visibility)
                 .with_system(handle_sell)
-                .with_system(handle_shop),
-        )
-        .add_system_set(
-            SystemSet::new()
-                .with_run_criteria(FixedTimestep::step(TICK_STEP as f64))
+                .with_system(handle_shop)
                 .with_system(game_tick),
         )
         .add_system(update_scoreboard)
