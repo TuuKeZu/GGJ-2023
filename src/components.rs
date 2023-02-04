@@ -1,23 +1,7 @@
-use std::ops::Div;
-use std::time::Duration;
-use std::{borrow::Cow, collections::VecDeque};
+use std::collections::VecDeque;
 
 use bevy::reflect::TypeUuid;
-use bevy::{
-    core_pipeline::bloom::BloomSettings,
-    math::*,
-    prelude::*,
-    render::{
-        render_resource::{
-            BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, BufferBindingType,
-            ComputePipelineDescriptor, Extent3d, PipelineCache, ShaderStages, TextureDimension,
-            TextureFormat,
-        },
-        renderer::RenderDevice,
-    },
-    sprite::collide_aabb::{collide, Collision},
-    time::FixedTimestep,
-};
+use bevy::{math::*, prelude::*};
 
 use crate::{Texture, CURSOR_COLOR, SPRITE_SIZE, TILE_COLOR, TILE_SIZE, WALL_COLOR};
 
@@ -199,10 +183,16 @@ impl PathTile {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum TileState {
     Free,
     Occupied,
+}
+
+impl TileState {
+    pub fn is_free(&self) -> bool {
+        *self == Self::Free
+    }
 }
 
 impl Default for TileState {
@@ -211,8 +201,13 @@ impl Default for TileState {
     }
 }
 
-// This resource tracks the game's score
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Ord, Eq)]
+pub enum MenuItem {
+    Turret1x1,
+    Turret2x2,
+}
+
 #[derive(Resource)]
-pub struct Scoreboard {
-    pub score: usize,
+pub struct Menu {
+    pub current_item: MenuItem,
 }

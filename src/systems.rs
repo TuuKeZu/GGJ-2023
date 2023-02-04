@@ -1,21 +1,9 @@
-use std::ops::Div;
-use std::time::Duration;
-use std::{borrow::Cow, collections::VecDeque};
-
 use bevy::{
     core_pipeline::bloom::BloomSettings,
     math::*,
     prelude::*,
-    render::{
-        render_resource::{
-            BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, BufferBindingType,
-            ComputePipelineDescriptor, Extent3d, PipelineCache, ShaderStages, TextureDimension,
-            TextureFormat,
-        },
-        renderer::RenderDevice,
-    },
+    render::render_resource::{Extent3d, TextureDimension, TextureFormat},
     sprite::collide_aabb::{collide, Collision},
-    time::FixedTimestep,
 };
 
 use crate::components::*;
@@ -102,32 +90,8 @@ pub fn setup(
     });
 
     // Scoreboard
-    commands.spawn(
-        TextBundle::from_sections([
-            TextSection::new(
-                "Score: ",
-                TextStyle {
-                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                    font_size: SCOREBOARD_FONT_SIZE,
-                    color: TEXT_COLOR,
-                },
-            ),
-            TextSection::from_style(TextStyle {
-                font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-                font_size: SCOREBOARD_FONT_SIZE,
-                color: SCORE_COLOR,
-            }),
-        ])
-        .with_style(Style {
-            position_type: PositionType::Absolute,
-            position: UiRect {
-                top: SCOREBOARD_TEXT_PADDING,
-                left: SCOREBOARD_TEXT_PADDING,
-                ..default()
-            },
-            ..default()
-        }),
-    );
+    let font = asset_server.load("fonts/ComicMono.ttf");
+    commands.spawn(GUIBundle::new(font));
 }
 
 pub fn spawn_level(
@@ -378,7 +342,7 @@ pub fn game_tick(
     }
 }
 
-pub fn update_scoreboard(scoreboard: Res<Scoreboard>, mut query: Query<&mut Text>) {
+pub fn update_scoreboard(scoreboard: Res<GUI>, mut query: Query<&mut Text>) {
     let mut text = query.single_mut();
     text.sections[1].value = scoreboard.score.to_string();
 }
