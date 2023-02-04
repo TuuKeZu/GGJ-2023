@@ -18,8 +18,27 @@ pub fn setup(
     windows: Res<Windows>,
     asset_server: Res<AssetServer>,
     mut images: ResMut<Assets<Image>>,
-    mut texture_atlases: ResMut<Assets<TextureAtlas>>,
+    sprite_handles: Res<SpriteHandles>,
 ) {
+    info!("entering setup");
+    let mut texture_atlas_builder = TextureAtlasBuilder::default();
+    for handle in &sprite_handles.handles {
+        let handle = handle.typed_weak();
+        let texture = if let Some(texture) = images.get(&handle) {
+            texture
+        } else {
+            warn!(
+                "{:?} did not resolve to an `Image` asset.",
+                asset_server.get_handle_path(handle)
+            );
+            continue;
+        };
+
+        texture_atlas_builder.add_texture(handle, texture);
+    }
+
+    texture_atlas_builder.finish(&mut images).unwrap(); // not sure what to do with the return value of this
+
     // level
     let level = LevelHandle(asset_server.load("map.json"));
     commands.insert_resource(level);
@@ -96,6 +115,7 @@ pub fn setup(
     // Scoreboard
     let font = asset_server.load("fonts/ComicMono.ttf");
     commands.spawn(GUIBundle::new(font));
+    info!("setup finished");
 
     // Textures
     // let texture_handle = asset_server.load("resources/potato.png");
@@ -212,16 +232,19 @@ pub fn spawn_level(
         }
 
         state.set(AppState::Level).unwrap();
+        info!("exit spawn_level");
     }
 }
 
 pub fn move_cursor(
+    state: Res<State<AppState>>,
     mut query: Query<(&mut Transform, &mut GridCursor), (Without<Camera>, Without<Selected>)>,
     child_q: Query<&Transform, With<Selected>>,
     camera_q: Query<&Transform, With<Camera>>,
     windows: Res<Windows>,
     time: Res<Time>,
 ) {
+    info!("move_cursor, {state:?}");
     let window = windows.get_primary().unwrap();
     let window_size = Vec2::new(window.width(), window.height());
     let camera_transform = camera_q.get_single().unwrap();
