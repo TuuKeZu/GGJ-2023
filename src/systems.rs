@@ -328,14 +328,14 @@ pub fn game_tick(
     mut enemy_q: Query<(&mut Transform, &mut Enemy)>,
 ) {
     if enemy_q.iter().count() < 1 {
-        let texture = asset_server.load("resources/potato.png");
-
         commands.spawn(
-            EnemyBundle::new(Enemy {
-                kind: EnemyKind::Potato,
-                idx: 0,
-            })
-            .with_texture(texture)
+            EnemyBundle::new(
+                Enemy {
+                    kind: EnemyKind::Carrot,
+                    idx: 0,
+                },
+                &asset_server,
+            )
             .with_position(path.start_position.extend(0.)),
         );
     }

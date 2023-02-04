@@ -70,10 +70,10 @@ impl Turret {
     }
 
     pub fn sprite(&self, asset_server: &Res<AssetServer>) -> Handle<Image> {
-        match self {
-            Turret::Turret1x1 => asset_server.load("resources/turret-2.png"),
-            Turret::Turret2x2 => asset_server.load("resources/turret-1.png"),
-        }
+        asset_server.load(match self {
+            Turret::Turret1x1 => "resources/turret-2.png",
+            Turret::Turret2x2 => "resources/turret-1.png",
+        })
     }
 }
 
@@ -152,11 +152,12 @@ pub struct EnemyBundle {
 }
 
 impl EnemyBundle {
-    pub fn new(enemy: Enemy) -> Self {
+    pub fn new(enemy: Enemy, asset_server: &Res<AssetServer>) -> Self {
         Self {
             sprite_bundle: SpriteBundle {
                 transform: Transform::from_xyz(0., 0., 0.)
                     .with_scale(Vec3::splat(TILE_SIZE / SPRITE_SIZE)),
+                texture: enemy.sprite(asset_server),
                 ..default()
             },
             enemy,
@@ -188,6 +189,13 @@ impl Enemy {
                 EnemyKind::Potato => 2.,
                 EnemyKind::Carrot => 4.,
             }
+    }
+
+    pub fn sprite(&self, asset_server: &Res<AssetServer>) -> Handle<Image> {
+        asset_server.load(match self.kind {
+            EnemyKind::Potato => "resources/potato.png",
+            EnemyKind::Carrot => "resources/carrot.png",
+        })
     }
 }
 
