@@ -149,7 +149,6 @@ pub fn spawn_level(
             commands.spawn(Tile::new().with_position(pos.extend(0.)));
         }
 
-        info!("{:#?}", path);
         state.set(AppState::Level).unwrap();
     }
 }
@@ -238,7 +237,6 @@ pub fn handle_place(
 
     if let Ok((transform, placeable)) = child_q.get_single() {
         if buttons.just_pressed(MouseButton::Left) {
-            //info!("yeet");
             let cursor_transform =
                 Transform::from_xyz(cursor.last_target_pos.x, cursor.last_target_pos.y, 0.)
                     .with_scale(cursor_transform.scale * transform.scale);
