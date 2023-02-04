@@ -23,6 +23,7 @@ use bevy_common_assets::json::JsonAssetPlugin;
 
 // Defines the amount of time that should elapse between each physics step.
 const TIME_STEP: f32 = 1.0 / 360.;
+const TICK_STEP: f32 = 1.0 / 5.;
 
 // These constants are defined in `Transform` units.
 
@@ -66,6 +67,11 @@ fn main() {
                 .with_system(handle_cursor_visibility)
                 .with_system(handle_collisions)
                 .with_system(handle_sell),
+        )
+        .add_system_set(
+            SystemSet::new()
+                .with_run_criteria(FixedTimestep::step(TICK_STEP as f64))
+                .with_system(game_tick),
         )
         .add_system(update_scoreboard)
         .add_system(bevy::window::close_on_esc)
@@ -141,7 +147,7 @@ impl Turret {
         Self {
             sprite_bundle: SpriteBundle {
                 transform: Transform::from_xyz(0., 0., 0.)
-                    .with_scale(Vec3::splat(1. / SPRITE_SIZE)),
+                    .with_scale(Vec3::splat(2. / SPRITE_SIZE)),
                 sprite: Sprite {
                     color: WALL_COLOR,
                     ..default()
@@ -195,7 +201,35 @@ impl Tile {
     }
 }
 
-#[derive(Component, Default)]
+#[derive(Bundle)]
+struct PotatoBundle {
+    sprite_bundle: SpriteBundle,
+    potato: Potato,
+}
+
+impl PotatoBundle {
+    fn new(potato: Potato) -> Self {
+        Self {
+            sprite_bundle: SpriteBundle {
+                transform: Transform::from_xyz(0., 0., 0.).with_scale(Vec3::splat(1.)),
+                ..default()
+            },
+            potato,
+        }
+    }
+
+    fn with_texture(mut self, texture: Texture) -> Self {
+        self.sprite_bundle.texture = texture;
+        self
+    }
+
+    fn with_position(mut self, translation: Vec3) -> Self {
+        self.sprite_bundle.transform.translation = translation;
+        self
+    }
+}
+
+#[derive(Component)]
 struct Potato {
     idx: usize,
 }
@@ -204,7 +238,34 @@ struct Potato {
 struct Path {
     start_position: Vec2,
     end_position: Vec2,
-    positions: VecDeque<Vec2>,
+    positions: VecDeque<PathTile>,
+}
+
+#[derive(Default, Debug)]
+struct PathTile {
+    state: TileState,
+    position: Vec2,
+}
+
+impl PathTile {
+    fn new(position: Vec2) -> Self {
+        Self {
+            position,
+            ..default()
+        }
+    }
+}
+
+#[derive(Debug, PartialEq)]
+enum TileState {
+    Free,
+    Occupied,
+}
+
+impl Default for TileState {
+    fn default() -> Self {
+        Self::Free
+    }
 }
 
 // This resource tracks the game's score
@@ -340,7 +401,7 @@ fn spawn_level(
 
         let start = tiles.next().unwrap();
         path.start_position = *start;
-        path.positions.push_back(*start);
+        path.positions.push_back(PathTile::new(*start));
 
         commands.spawn(
             Tile::new()
@@ -353,7 +414,7 @@ fn spawn_level(
 
         let end = tiles.next_back().unwrap();
         path.end_position = *end;
-        path.positions.push_front(*end);
+        path.positions.push_front(PathTile::new(*end));
 
         commands.spawn(
             Tile::new()
@@ -368,7 +429,7 @@ fn spawn_level(
         camera_transform.translation += (*end - *start).extend(0.) / 2.;
 
         for pos in tiles {
-            path.positions.push_back(*pos);
+            path.positions.push_back(PathTile::new(*pos));
             commands.spawn(Tile::new().with_position(pos.extend(0.)));
         }
 
@@ -526,10 +587,50 @@ fn handle_sell(
 
 fn game_tick(
     mut commands: Commands,
+    asset_server: Res<AssetServer>,
     mut path: ResMut<Path>, //
     mut potato_q: Query<(&mut Transform, &mut Potato)>,
 ) {
-    if potato_q.iter().count() < 5 {}
+    let mut moved = false;
+    if potato_q.iter().count() < 7 {
+        let texture = asset_server.load("resources/potato.png");
+
+        commands.spawn(
+            PotatoBundle::new(Potato { idx: 0 })
+                .with_texture(texture)
+                .with_position(path.start_position.extend(0.)),
+        );
+
+        path.positions[0].state = TileState::Occupied;
+        info!("Spawned potato");
+    }
+
+    for (mut potato_transform, mut potato) in potato_q.iter_mut() {
+        if let Some(next_position) = path.positions.get_mut(potato.idx + 1) {
+            if next_position.state == TileState::Free {
+                // move the potato
+                potato_transform.translation = next_position.position.extend(0.);
+
+                // occupy the next tile
+                next_position.state = TileState::Occupied;
+
+                // freet he current tile
+
+                // set current tile to new
+                potato.idx += 1;
+                moved = true;
+            }
+        } else {
+            potato_transform.translation = path.end_position.extend(0.);
+            potato.idx = 0;
+            moved = true;
+        };
+
+        if moved {
+            let current_position = &mut path.positions[potato.idx];
+            current_position.state = TileState::Free;
+        }
+    }
 }
 
 fn update_scoreboard(scoreboard: Res<Scoreboard>, mut query: Query<&mut Text>) {
