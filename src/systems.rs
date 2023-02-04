@@ -84,8 +84,7 @@ pub fn setup(
 
     let turret = commands
         .spawn((
-            TurretBundle::new(Turret::Turret2x2)
-                .with_texture(asset_server.load("resources/potato.png")),
+            TurretBundle::new(Turret::Turret2x2, &asset_server),
             Selected {},
         ))
         .id();
@@ -225,15 +224,12 @@ pub fn handle_place(
     if let Ok((transform, placeable)) = child_q.get_single() {
         if buttons.just_pressed(MouseButton::Left) {
             //info!("yeet");
-            let texture = asset_server.load("resources/potato.png");
             let cursor_transform =
                 Transform::from_xyz(cursor.last_target_pos.x, cursor.last_target_pos.y, 0.)
                     .with_scale(cursor_transform.scale * transform.scale);
 
             commands.spawn(
-                TurretBundle::new(*placeable)
-                    .with_transform(cursor_transform)
-                    .with_texture(texture),
+                TurretBundle::new(*placeable, &asset_server).with_transform(cursor_transform),
             );
         }
     }
@@ -370,22 +366,16 @@ pub fn handle_shop(
         menu.current_item = item_map[idx];
         if let Ok((child, transform)) = selected_q.get_single() {
             let cursor = cursor_q.single();
-            let texture = asset_server.load("resources/potato.png");
             let new_child = match item_map[idx] {
                 MenuItem::Turret1x1 => commands
                     .spawn((
-                        TurretBundle::new(Turret::Turret1x1).with_texture(texture),
+                        TurretBundle::new(Turret::Turret1x1, &asset_server),
                         Selected {},
                     ))
                     .id(),
                 MenuItem::Turret2x2 => commands
                     .spawn((
-                        TurretBundle::new(Turret::Turret2x2)
-                            .with_transform(
-                                Transform::from_xyz(0., 0., 0.)
-                                    .with_scale(Vec3::splat(3. / SPRITE_SIZE)),
-                            )
-                            .with_texture(texture),
+                        TurretBundle::new(Turret::Turret2x2, &asset_server),
                         Selected {},
                     ))
                     .id(),
