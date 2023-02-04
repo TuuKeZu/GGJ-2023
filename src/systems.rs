@@ -1,5 +1,3 @@
-use std::process::id;
-
 use bevy::{
     core_pipeline::bloom::BloomSettings,
     math::*,
@@ -18,7 +16,6 @@ pub fn setup(
     windows: Res<Windows>,
     asset_server: Res<AssetServer>,
     mut images: ResMut<Assets<Image>>,
-    mut texture_atlases: ResMut<Assets<TextureAtlas>>,
 ) {
     // level
     let level = LevelHandle(asset_server.load("map.json"));
@@ -449,7 +446,7 @@ pub fn handle_shop(
         };
 
         menu.current_item = item_map[idx];
-        if let Ok((child, transform)) = selected_q.get_single() {
+        if let Ok((child, _)) = selected_q.get_single() {
             let cursor = cursor_q.single();
             let new_child = match item_map[idx] {
                 MenuItem::Turret1x1 => commands

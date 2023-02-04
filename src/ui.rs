@@ -1,5 +1,5 @@
 use bevy::{
-    prelude::{Resource, TextBundle},
+    prelude::TextBundle,
     text::{TextSection, TextStyle},
 };
 
