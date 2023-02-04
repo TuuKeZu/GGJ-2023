@@ -1,6 +1,7 @@
 use std::ops::Div;
 
 use bevy::{
+    core_pipeline::bloom::BloomSettings,
     math::*,
     prelude::*,
     sprite::collide_aabb::{collide, Collision},
@@ -16,13 +17,15 @@ const SCOREBOARD_FONT_SIZE: f32 = 40.0;
 const SCOREBOARD_TEXT_PADDING: Val = Val::Px(5.0);
 
 const BACKGROUND_COLOR: Color = Color::rgb(0.1, 0.1, 0.1);
-const PADDLE_COLOR: Color = Color::rgb(0.3, 0.3, 0.7);
-const WALL_COLOR: Color = Color::rgb(0.1, 0.5, 0.5);
+const CURSOR_COLOR: Color = Color::rgb_linear(0.3, 0.3, 2.7);
+const WALL_COLOR: Color = Color::rgb(1., 1., 1.);
 const TEXT_COLOR: Color = Color::rgb(0.8, 0.8, 1.8);
 const SCORE_COLOR: Color = Color::rgb(1.0, 0.5, 0.5);
 const ERROR_COLOR: Color = Color::rgb(1.0, 0., 0.);
 
-const TILE_SIZE: f32 = 16.;
+const TILE_SIZE: f32 = 32.;
+
+type Texture = bevy::prelude::Handle<bevy::prelude::Image>;
 
 /// todo
 /// - [X] impl new for Cursor component
@@ -30,7 +33,7 @@ const TILE_SIZE: f32 = 16.;
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest())) // prevents blurry sprites
         .insert_resource(Scoreboard { score: 0 })
         .insert_resource(ClearColor(BACKGROUND_COLOR))
         .add_startup_system(setup)
@@ -69,13 +72,17 @@ impl Cursor {
                         z: 0.,
                     }),
                 sprite: Sprite {
-                    color: PADDLE_COLOR,
+                    color: CURSOR_COLOR,
                     ..default()
                 },
                 ..default()
             },
             ..default()
         }
+    }
+
+    fn with_texture(mut self, texture: Texture) {
+        self.sprite_bundle.texture = texture;
     }
 }
 
@@ -86,45 +93,38 @@ struct GridCursor {
 
 #[derive(Component)]
 enum Placeable {
-    AssemblingMachine,
+    Turret,
 }
 
 #[derive(Bundle)]
 struct Turret {
     sprite_bundle: SpriteBundle,
+    collider: Collider,
 }
 
 impl Turret {
-    fn new() -> (Self, Collider) {
-        (
-            Self {
-                sprite_bundle: SpriteBundle {
-                    transform: Transform::from_xyz(0., 0., 0.).with_scale(vec3(3., 3., 3.)),
-                    sprite: Sprite {
-                        color: WALL_COLOR,
-                        ..default()
-                    },
+    fn new() -> Self {
+        Self {
+            sprite_bundle: SpriteBundle {
+                transform: Transform::from_xyz(0., 0., 0.).with_scale(Vec3::splat(1. / 16.)),
+                sprite: Sprite {
+                    color: WALL_COLOR,
                     ..default()
                 },
+                ..default()
             },
-            Collider,
-        )
+            collider: Collider,
+        }
     }
 
-    fn with_transform(transform: Transform) -> (Self, Collider) {
-        (
-            Self {
-                sprite_bundle: SpriteBundle {
-                    transform,
-                    sprite: Sprite {
-                        color: WALL_COLOR,
-                        ..default()
-                    },
-                    ..default()
-                },
-            },
-            Collider,
-        )
+    fn with_transform(mut self, transform: Transform) -> Self {
+        self.sprite_bundle.transform = transform;
+        self
+    }
+
+    fn with_texture(mut self, texture: Texture) -> Self {
+        self.sprite_bundle.texture = texture;
+        self
     }
 }
 
@@ -135,18 +135,28 @@ struct Scoreboard {
 }
 
 // Add the game's entities to our world
-fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-    asset_server: Res<AssetServer>,
-) {
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Camera
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn((
+        Camera2dBundle {
+            camera: Camera {
+                hdr: true, // 1. HDR must be enabled on the camera
+                ..default()
+            },
+            ..default()
+        },
+        BloomSettings {
+            threshold: 0.2,
+            ..default()
+        },
+    ));
 
     // Cursor
     commands.spawn(Cursor::new()).with_children(|parent| {
-        parent.spawn((Turret::new(), Placeable::AssemblingMachine));
+        parent.spawn((
+            Turret::new().with_texture(asset_server.load("resources/potato.png")),
+            Placeable::Turret,
+        ));
     });
 
     // Scoreboard
@@ -221,6 +231,7 @@ fn handle_cursor_visibility(
 
 fn handle_place(
     mut commands: Commands,
+    asset_server: Res<AssetServer>,
     cursor_q: Query<(&Transform, &GridCursor), Without<Placeable>>,
     child_q: Query<(&Transform, &Placeable)>,
     buttons: Res<Input<MouseButton>>,
@@ -235,10 +246,15 @@ fn handle_place(
     if buttons.just_pressed(MouseButton::Left) {
         //info!("yeet");
         match placeable {
-            Placeable::AssemblingMachine => {
+            Placeable::Turret => {
+                let texture = asset_server.load("resources/potato.png");
                 let cursor_transform =
                     cursor_transform.with_scale(cursor_transform.scale * transform.scale);
-                commands.spawn(Turret::with_transform(cursor_transform));
+                commands.spawn(
+                    Turret::new()
+                        .with_transform(cursor_transform)
+                        .with_texture(texture),
+                );
             }
         }
     }
