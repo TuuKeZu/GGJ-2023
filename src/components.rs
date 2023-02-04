@@ -73,7 +73,7 @@ impl TurretBundle {
         Self {
             sprite_bundle: SpriteBundle {
                 transform: Transform::from_xyz(0., 0., 0.)
-                    .with_scale(Vec3::splat(2. / SPRITE_SIZE)),
+                    .with_scale(Vec3::splat(1. / SPRITE_SIZE)),
                 sprite: Sprite {
                     color: WALL_COLOR,
                     ..default()
@@ -205,6 +205,12 @@ impl Default for TileState {
 pub enum MenuItem {
     Turret1x1,
     Turret2x2,
+}
+
+impl MenuItem {
+    pub fn all() -> [Self; 2] {
+        [Self::Turret1x1, Self::Turret2x2]
+    }
 }
 
 #[derive(Resource)]

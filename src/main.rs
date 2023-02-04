@@ -47,9 +47,6 @@ fn main() {
         .insert_resource(Menu {
             current_item: MenuItem::Turret2x2,
         })
-        .insert_resource(GUI {
-            score: "2 x 2".to_string(),
-        })
         .insert_resource(Path::default())
         .add_state(AppState::Loading)
         .add_startup_system(setup)
@@ -61,7 +58,8 @@ fn main() {
                 .with_system(handle_collisions)
                 .with_system(handle_place.after(handle_collisions))
                 .with_system(handle_cursor_visibility)
-                .with_system(handle_sell),
+                .with_system(handle_sell)
+                .with_system(handle_shop),
         )
         .add_system_set(
             SystemSet::new()

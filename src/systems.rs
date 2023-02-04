@@ -1,3 +1,5 @@
+use std::process::id;
+
 use bevy::{
     core_pipeline::bloom::BloomSettings,
     math::*,
@@ -34,7 +36,7 @@ pub fn setup(
         &[0, 0, 0, 0],
         TextureFormat::Rgba8Unorm,
     );
-    info!("{size:?}");
+
     for (y, row) in image
         .data
         .chunks_mut(window.width() as usize * 4)
@@ -80,14 +82,16 @@ pub fn setup(
         },
     ));
 
-    // Cursor
-    commands.spawn(Cursor::new()).with_children(|parent| {
-        parent.spawn((
+    let turret = commands
+        .spawn((
             TurretBundle::new(Turret::Turret2x2)
                 .with_texture(asset_server.load("resources/potato.png")),
             Selected {},
-        ));
-    });
+        ))
+        .id();
+
+    // Cursor
+    commands.spawn(Cursor::new()).add_child(turret);
 
     // Scoreboard
     let font = asset_server.load("fonts/ComicMono.ttf");
@@ -197,13 +201,13 @@ pub fn handle_cursor_visibility(
     mut child_q: Query<&mut Sprite, With<Selected>>,
 ) {
     let cursor = cursor_q.get_single().unwrap();
-    let mut sprite = child_q.get_single_mut().unwrap();
-
-    sprite.color = if cursor.can_place {
-        WALL_COLOR
-    } else {
-        ERROR_COLOR
-    };
+    if let Ok(mut sprite) = child_q.get_single_mut() {
+        sprite.color = if cursor.can_place {
+            WALL_COLOR
+        } else {
+            ERROR_COLOR
+        };
+    }
 }
 
 pub fn handle_place(
@@ -214,31 +218,24 @@ pub fn handle_place(
     buttons: Res<Input<MouseButton>>,
 ) {
     let (cursor_transform, cursor) = cursor_q.get_single().unwrap();
-    let (transform, placeable) = child_q.get_single().unwrap();
-
     if !cursor.can_place {
         return;
     }
 
-    if buttons.just_pressed(MouseButton::Left) {
-        //info!("yeet");
-        let texture = asset_server.load("resources/potato.png");
-        let cursor_transform =
-            Transform::from_xyz(cursor.last_target_pos.x, cursor.last_target_pos.y, 0.)
-                .with_scale(cursor_transform.scale * transform.scale);
+    if let Ok((transform, placeable)) = child_q.get_single() {
+        if buttons.just_pressed(MouseButton::Left) {
+            //info!("yeet");
+            let texture = asset_server.load("resources/potato.png");
+            let cursor_transform =
+                Transform::from_xyz(cursor.last_target_pos.x, cursor.last_target_pos.y, 0.)
+                    .with_scale(cursor_transform.scale * transform.scale);
 
-        commands.spawn(
-            TurretBundle::new(*placeable)
-                .with_transform(cursor_transform)
-                .with_texture(texture),
-        );
-        /*
-        match placeable {
-            Turret::Turret => {
-                );
-            }
+            commands.spawn(
+                TurretBundle::new(*placeable)
+                    .with_transform(cursor_transform)
+                    .with_texture(texture),
+            );
         }
-        */
     }
 }
 
@@ -342,7 +339,59 @@ pub fn game_tick(
     }
 }
 
-pub fn update_scoreboard(scoreboard: Res<GUI>, mut query: Query<&mut Text>) {
+pub fn handle_shop(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    cursor_q: Query<Entity, With<GridCursor>>,
+    selected_q: Query<(Entity, &Transform), With<Selected>>,
+    mut menu: ResMut<Menu>,
+    keys: Res<Input<KeyCode>>,
+) {
+    let item_map = MenuItem::all();
+
+    if keys.any_just_pressed([KeyCode::Key1, KeyCode::Key2]) {
+        let idx: usize = if keys.just_pressed(KeyCode::Key1) {
+            0
+        } else if keys.just_pressed(KeyCode::Key2) {
+            1
+        } else {
+            return;
+        };
+
+        menu.current_item = item_map[idx];
+        if let Ok((child, transform)) = selected_q.get_single() {
+            let cursor = cursor_q.single();
+            let texture = asset_server.load("resources/potato.png");
+            let new_child = match item_map[idx] {
+                MenuItem::Turret1x1 => commands
+                    .spawn((
+                        TurretBundle::new(Turret::Turret1x1).with_texture(texture),
+                        Selected {},
+                    ))
+                    .id(),
+                MenuItem::Turret2x2 => commands
+                    .spawn((
+                        TurretBundle::new(Turret::Turret2x2)
+                            .with_transform(
+                                Transform::from_xyz(0., 0., 0.)
+                                    .with_scale(Vec3::splat(3. / SPRITE_SIZE)),
+                            )
+                            .with_texture(texture),
+                        Selected {},
+                    ))
+                    .id(),
+            };
+
+            commands.entity(cursor).remove_children(&[child]);
+            commands.entity(child).despawn();
+            commands.entity(cursor).add_child(new_child);
+        }
+
+        //commands.entity(cursor).remove_children(children)
+    }
+}
+
+pub fn update_scoreboard(menu: Res<Menu>, mut query: Query<&mut Text>) {
     let mut text = query.single_mut();
-    text.sections[1].value = scoreboard.score.to_string();
+    text.sections[1].value = format!("{:?}", menu.current_item);
 }

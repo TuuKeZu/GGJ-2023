@@ -5,12 +5,6 @@ use bevy::{
 
 use crate::*;
 
-// This resource tracks the game's score
-#[derive(Resource)]
-pub struct GUI {
-    pub score: String,
-}
-
 #[derive(Bundle)]
 pub struct GUIBundle {
     pub text_bundle: TextBundle,
