@@ -29,7 +29,7 @@ pub const TILE_COLOR: Color = Color::rgb(0.2, 0.2, 0.2);
 pub const START_COLOR: Color = Color::rgb(0., 1., 0.);
 pub const END_COLOR: Color = Color::rgb(1., 0., 0.);
 
-pub const TILE_SIZE: f32 = 32.;
+pub const TILE_SIZE: f32 = 64.;
 pub const SPRITE_SIZE: f32 = 16.;
 
 pub type Texture = bevy::prelude::Handle<bevy::prelude::Image>;

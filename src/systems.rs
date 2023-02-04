@@ -155,7 +155,8 @@ pub fn spawn_level(
 }
 
 pub fn move_cursor(
-    mut query: Query<(&mut Transform, &mut GridCursor), Without<Camera>>,
+    mut query: Query<(&mut Transform, &mut GridCursor), (Without<Camera>, Without<Selected>)>,
+    child_q: Query<&Transform, With<Selected>>,
     camera_q: Query<&Transform, With<Camera>>,
     windows: Res<Windows>,
     time: Res<Time>,
@@ -164,6 +165,12 @@ pub fn move_cursor(
     let window_size = Vec2::new(window.width(), window.height());
     let camera_transform = camera_q.get_single().unwrap();
 
+    let sprite = if let Ok(sprite) = child_q.get_single() {
+        sprite.with_scale(sprite.scale * SPRITE_SIZE)
+    } else {
+        return;
+    };
+
     // TODO clean this ugly mess
     if let Some(cursor_position) = window.cursor_position() {
         let elapsed = time.elapsed().as_secs_f32();
@@ -171,8 +178,16 @@ pub fn move_cursor(
         let mut target_pos_grid =
             cursor_position - (window_size / 2.) + camera_transform.translation.truncate();
 
+        if sprite.scale.z as i32 % 2 == 0 {
+            target_pos_grid -= Vec2::splat(TILE_SIZE / 2.);
+        }
+
         target_pos_grid =
             (target_pos_grid / TILE_SIZE).floor() * TILE_SIZE + Vec2::splat(TILE_SIZE / 2.);
+
+        if sprite.scale.z as i32 % 2 == 0 {
+            target_pos_grid += Vec2::splat(TILE_SIZE / 2.);
+        }
 
         let prev_pos = cursor_transform.translation.xy();
         let delta = target_pos_grid - prev_pos;
@@ -253,11 +268,11 @@ pub fn handle_collisions(
 
         for (collider_transform, _c) in turret_q.iter() {
             let collider_transform =
-                collider_transform.with_scale((collider_transform.scale / 2.) * TILE_SIZE);
+                collider_transform.with_scale(collider_transform.scale / SPRITE_SIZE);
 
             let collision = collide(
                 cursor_transform,
-                c_transform.scale.truncate(),
+                c_transform.scale.zz(),
                 collider_transform.translation,
                 collider_transform.scale.truncate(),
             );
@@ -271,7 +286,7 @@ pub fn handle_collisions(
         for (collider_transform, _c) in collider_q.iter() {
             let collision = collide(
                 cursor_transform,
-                c_transform.scale.truncate(),
+                c_transform.scale.zz(),
                 collider_transform.translation,
                 collider_transform.scale.truncate(),
             );

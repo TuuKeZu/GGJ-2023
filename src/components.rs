@@ -65,14 +65,14 @@ impl Turret {
     pub fn scale(&self) -> Vec2 {
         match self {
             Turret::Turret1x1 => Vec2::splat(1. / SPRITE_SIZE),
-            Turret::Turret2x2 => Vec2::splat(3. / SPRITE_SIZE),
+            Turret::Turret2x2 => Vec2::splat(2. / SPRITE_SIZE),
         }
     }
 
     pub fn sprite(&self, asset_server: &Res<AssetServer>) -> Handle<Image> {
         match self {
-            Turret::Turret1x1 => asset_server.load("/resources/potato.png"),
-            Turret::Turret2x2 => asset_server.load("/resources/potato.png"),
+            Turret::Turret1x1 => asset_server.load("resources/turret-2.png"),
+            Turret::Turret2x2 => asset_server.load("resources/turret-1.png"),
         }
     }
 }
@@ -88,7 +88,8 @@ impl TurretBundle {
     pub fn new(turret: Turret, asset_server: &Res<AssetServer>) -> Self {
         Self {
             sprite_bundle: SpriteBundle {
-                transform: Transform::from_xyz(0., 0., 0.).with_scale(turret.scale().extend(0.)),
+                transform: Transform::from_xyz(0., 0., 0.)
+                    .with_scale(Vec2::splat(1. / SPRITE_SIZE).extend(turret.scale().x)),
                 sprite: Sprite {
                     color: WALL_COLOR,
                     ..default()
