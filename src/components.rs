@@ -154,7 +154,8 @@ impl EnemyBundle {
     pub fn new(enemy: Enemy) -> Self {
         Self {
             sprite_bundle: SpriteBundle {
-                transform: Transform::from_xyz(0., 0., 0.).with_scale(Vec3::splat(1.)),
+                transform: Transform::from_xyz(0., 0., 0.)
+                    .with_scale(Vec3::splat(TILE_SIZE / SPRITE_SIZE)),
                 ..default()
             },
             enemy,
