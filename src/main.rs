@@ -1,4 +1,5 @@
 use std::ops::Div;
+use std::time::Duration;
 use std::{borrow::Cow, collections::VecDeque};
 
 use bevy::{
@@ -117,9 +118,11 @@ impl Cursor {
     }
 }
 
-#[derive(Component, Default)]
+#[derive(Component, Debug, Default)]
 struct GridCursor {
     can_place: bool,
+    last_target_pos: Vec2,
+    last_sample: f32,
 }
 
 #[derive(Component)]
@@ -374,34 +377,47 @@ fn spawn_level(
     }
 }
 
-fn ease(x: f32) -> f32 {
+fn ease_old(x: f32) -> f32 {
     0.5 - (x.max(0.).min(1.) * std::f32::consts::PI).cos() / 2.
 }
 
+fn ease(mut x: f32) -> f32 {
+    x = x.max(0.).min(1.);
+    x.powi(2) * (x - 2.).powi(2)
+}
+
 fn move_cursor(
-    mut query: Query<(&mut Transform, &GridCursor), Without<Camera>>,
+    mut query: Query<(&mut Transform, &mut GridCursor), Without<Camera>>,
     camera_q: Query<&Transform, With<Camera>>,
     windows: Res<Windows>,
+    time: Res<Time>,
 ) {
     let window = windows.get_primary().unwrap();
     let window_size = Vec2::new(window.width(), window.height());
     let camera_transform = camera_q.get_single().unwrap();
 
     if let Some(cursor_position) = window.cursor_position() {
-        let (mut cursor_transform, _) = query.get_single_mut().unwrap();
-        let mut cursor_position =
+        let elapsed = time.elapsed().as_secs_f32();
+        let (mut cursor_transform, mut grid_cursor) = query.get_single_mut().unwrap();
+        let mut target_pos_grid =
             cursor_position - (window_size / 2.) + camera_transform.translation.truncate();
 
-        cursor_position =
-            (cursor_position / TILE_SIZE).floor() * TILE_SIZE + Vec2::splat(TILE_SIZE / 2.);
+        target_pos_grid =
+            (target_pos_grid / TILE_SIZE).floor() * TILE_SIZE + Vec2::splat(TILE_SIZE / 2.);
 
-        // info!("{}", cursor_position);
+        let prev_pos = cursor_transform.translation.xy();
+        let delta = target_pos_grid - prev_pos;
 
-        let prevt = cursor_transform.translation;
-        let delta = cursor_position.extend(0.) - prevt;
-        let dist = delta.length();
-        const EASE_DIST: f32 = 5.0;
-        cursor_transform.translation = prevt + delta * ease(dist / EASE_DIST);
+        const EASE_TIME: f32 = 1.0;
+        let dt = elapsed - grid_cursor.last_sample;
+
+        let newp = prev_pos + delta * ease(dt / EASE_TIME);
+        cursor_transform.translation = newp.extend(0.);
+        if grid_cursor.last_target_pos != target_pos_grid {
+            // if the target grid has changed
+            grid_cursor.last_target_pos = target_pos_grid;
+            grid_cursor.last_sample = elapsed - 0.1;
+        }
     } else {
         // Window is not active => game should be paused
     }
