@@ -182,10 +182,12 @@ pub struct Enemy {
 
 impl Enemy {
     pub fn speed(&self) -> f32 {
-        match self.kind {
-            EnemyKind::Potato => 2. * TIME_STEP * TILE_SIZE,
-            EnemyKind::Carrot => 4. * TIME_STEP * TILE_SIZE,
-        }
+        TIME_STEP
+            * TILE_SIZE
+            * match self.kind {
+                EnemyKind::Potato => 2.,
+                EnemyKind::Carrot => 4.,
+            }
     }
 }
 
