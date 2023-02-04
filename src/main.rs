@@ -1,3 +1,4 @@
+use std::collections::VecDeque;
 use std::ops::Div;
 
 use bevy::{
@@ -7,6 +8,9 @@ use bevy::{
     sprite::collide_aabb::{collide, Collision},
     time::FixedTimestep,
 };
+
+use bevy::reflect::TypeUuid;
+use bevy_common_assets::json::JsonAssetPlugin;
 
 // Defines the amount of time that should elapse between each physics step.
 const TIME_STEP: f32 = 1.0 / 360.;
@@ -22,6 +26,9 @@ const WALL_COLOR: Color = Color::rgb(1., 1., 1.);
 const TEXT_COLOR: Color = Color::rgb(0.8, 0.8, 1.8);
 const SCORE_COLOR: Color = Color::rgb(1.0, 0.5, 0.5);
 const ERROR_COLOR: Color = Color::rgb(1.0, 0., 0.);
+const TILE_COLOR: Color = Color::rgb(0.2, 0.2, 0.2);
+const START_COLOR: Color = Color::rgb(0., 1., 0.);
+const END_COLOR: Color = Color::rgb(1., 0., 0.);
 
 const TILE_SIZE: f32 = 32.;
 
@@ -33,10 +40,13 @@ type Texture = bevy::prelude::Handle<bevy::prelude::Image>;
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest())) // prevents blurry sprites
+        .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
+        .add_plugin(JsonAssetPlugin::<Level>::new(&["json"]))
         .insert_resource(Scoreboard { score: 0 })
         .insert_resource(ClearColor(BACKGROUND_COLOR))
+        .add_state(AppState::Loading)
         .add_startup_system(setup)
+        .add_system_set(SystemSet::on_update(AppState::Loading).with_system(spawn_level))
         .add_system_set(
             SystemSet::new()
                 .with_run_criteria(FixedTimestep::step(TIME_STEP as f64))
@@ -50,6 +60,21 @@ fn main() {
         .add_system(bevy::window::close_on_esc)
         .run();
 }
+
+#[derive(Clone, Eq, PartialEq, Debug, Hash)]
+enum AppState {
+    Loading,
+    Level,
+}
+
+#[derive(serde::Deserialize, TypeUuid, Debug)]
+#[uuid = "413be529-bfeb-41b3-9db0-4b8b380a2c46"]
+struct Level {
+    path: Vec<[f32; 2]>,
+}
+
+#[derive(Resource, Debug)]
+struct LevelHandle(Handle<Level>);
 
 #[derive(Component)]
 struct Collider;
@@ -79,10 +104,6 @@ impl Cursor {
             },
             ..default()
         }
-    }
-
-    fn with_texture(mut self, texture: Texture) {
-        self.sprite_bundle.texture = texture;
     }
 }
 
@@ -128,6 +149,38 @@ impl Turret {
     }
 }
 
+#[derive(Bundle)]
+struct Tile {
+    sprite_bundle: SpriteBundle,
+    collider: Collider,
+}
+
+impl Tile {
+    fn new() -> Self {
+        Self {
+            sprite_bundle: SpriteBundle {
+                transform: Transform::from_xyz(0., 0., 0.).with_scale(Vec3::splat(TILE_SIZE)),
+                sprite: Sprite {
+                    color: TILE_COLOR,
+                    ..default()
+                },
+                ..default()
+            },
+            collider: Collider,
+        }
+    }
+
+    fn with_position(mut self, translation: Vec3) -> Self {
+        self.sprite_bundle.transform.translation = translation;
+        self
+    }
+
+    fn with_sprite(mut self, sprite: Sprite) -> Self {
+        self.sprite_bundle.sprite = sprite;
+        self
+    }
+}
+
 // This resource tracks the game's score
 #[derive(Resource)]
 struct Scoreboard {
@@ -136,6 +189,10 @@ struct Scoreboard {
 
 // Add the game's entities to our world
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+    // level
+    let level = LevelHandle(asset_server.load("map.json"));
+    commands.insert_resource(level);
+
     // Camera
     commands.spawn((
         Camera2dBundle {
@@ -188,17 +245,68 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     );
 }
 
+fn spawn_level(
+    mut commands: Commands,
+    level: Res<LevelHandle>,
+    mut levels: ResMut<Assets<Level>>,
+    mut state: ResMut<State<AppState>>,
+    mut query: Query<&mut Transform, With<Camera>>,
+) {
+    let mut camera_transform = query.get_single_mut().unwrap();
+    if let Some(level) = levels.remove(level.0.id()) {
+        let mut tiles = level
+            .path
+            .iter()
+            .map(|pos| vec2(pos[0], pos[1]) * Vec2::splat(TILE_SIZE) + Vec2::splat(TILE_SIZE / 2.));
+
+        let start = tiles.next().unwrap();
+        commands.spawn(
+            Tile::new()
+                .with_sprite(Sprite {
+                    color: START_COLOR,
+                    ..default()
+                })
+                .with_position(start.extend(0.)),
+        );
+
+        let end = tiles.next_back().unwrap();
+        commands.spawn(
+            Tile::new()
+                .with_sprite(Sprite {
+                    color: END_COLOR,
+                    ..default()
+                })
+                .with_position(end.extend(0.)),
+        );
+
+        // Move camera to middle of the map based on naive assumptions
+        camera_transform.translation += (end - start).extend(0.) / 2.;
+
+        for pos in tiles {
+            commands.spawn(Tile::new().with_position(pos.extend(0.)));
+        }
+
+        state.set(AppState::Level).unwrap();
+    }
+}
+
 fn ease(x: f32) -> f32 {
     0.5 - (x.max(0.).min(1.) * std::f32::consts::PI).cos() / 2.
 }
 
-fn move_cursor(mut query: Query<&mut Transform, With<GridCursor>>, windows: Res<Windows>) {
+fn move_cursor(
+    mut query: Query<(&mut Transform, &GridCursor), Without<Camera>>,
+    camera_q: Query<&Transform, With<Camera>>,
+    windows: Res<Windows>,
+) {
     let window = windows.get_primary().unwrap();
     let window_size = Vec2::new(window.width(), window.height());
+    let camera_transform = camera_q.get_single().unwrap();
 
     if let Some(cursor_position) = window.cursor_position() {
-        let mut cursor_transform = query.get_single_mut().unwrap();
-        let mut cursor_position = cursor_position - (window_size.div(2.));
+        let (mut cursor_transform, _) = query.get_single_mut().unwrap();
+        let mut cursor_position =
+            cursor_position - (window_size / 2.) + camera_transform.translation.truncate();
 
         cursor_position =
             (cursor_position / TILE_SIZE).floor() * TILE_SIZE + Vec2::splat(TILE_SIZE / 2.);
