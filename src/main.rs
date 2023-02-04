@@ -39,6 +39,7 @@ const START_COLOR: Color = Color::rgb(0., 1., 0.);
 const END_COLOR: Color = Color::rgb(1., 0., 0.);
 
 const TILE_SIZE: f32 = 32.;
+const SPRITE_SIZE: f32 = 16.;
 
 type Texture = bevy::prelude::Handle<bevy::prelude::Image>;
 
@@ -52,6 +53,7 @@ fn main() {
         .add_plugin(JsonAssetPlugin::<Level>::new(&["json"]))
         .insert_resource(Scoreboard { score: 0 })
         .insert_resource(ClearColor(BACKGROUND_COLOR))
+        .insert_resource(Path::default())
         .add_state(AppState::Loading)
         .add_startup_system(setup)
         .add_system_set(SystemSet::on_update(AppState::Loading).with_system(spawn_level))
@@ -135,7 +137,8 @@ impl Turret {
     fn new() -> Self {
         Self {
             sprite_bundle: SpriteBundle {
-                transform: Transform::from_xyz(0., 0., 0.).with_scale(Vec3::splat(1. / 16.)),
+                transform: Transform::from_xyz(0., 0., 0.)
+                    .with_scale(Vec3::splat(1. / SPRITE_SIZE)),
                 sprite: Sprite {
                     color: WALL_COLOR,
                     ..default()
@@ -189,6 +192,18 @@ impl Tile {
     }
 }
 
+#[derive(Component, Default)]
+struct Potato {
+    idx: usize,
+}
+
+#[derive(Resource, Default, Debug)]
+struct Path {
+    start_position: Vec2,
+    end_position: Vec2,
+    positions: VecDeque<Vec2>,
+}
+
 // This resource tracks the game's score
 #[derive(Resource)]
 struct Scoreboard {
@@ -226,12 +241,15 @@ fn setup(
         .enumerate()
     {
         for (x, pixel) in row.chunks_mut(4).enumerate() {
-            if y % TILE_SIZE as usize == 10 || x % TILE_SIZE as usize == 0 {
-                pixel[0] = 25;
-                pixel[1] = 25;
-                pixel[2] = 155;
-                pixel[3] = 255;
-            }
+            match (y % TILE_SIZE as usize, (x + 1) % TILE_SIZE as usize) {
+                (7..=8, _) | (_, 0..=1) => {
+                    pixel[0] = 15;
+                    pixel[1] = 15;
+                    pixel[2] = 15;
+                    pixel[3] = 255;
+                }
+                _ => {}
+            };
         }
     }
 
@@ -265,7 +283,7 @@ fn setup(
     // Cursor
     commands.spawn(Cursor::new()).with_children(|parent| {
         parent.spawn((
-            Turret::new().with_texture(asset_server.load("resources/potato.png")),
+            Turret::new().with_texture(asset_server.load("resources/turret-1.png")),
             Placeable::Turret,
         ));
     });
@@ -305,15 +323,22 @@ fn spawn_level(
     mut levels: ResMut<Assets<Level>>,
     mut state: ResMut<State<AppState>>,
     mut query: Query<&mut Transform, With<Camera>>,
+    mut path: ResMut<Path>,
 ) {
     let mut camera_transform = query.get_single_mut().unwrap();
     if let Some(level) = levels.remove(level.0.id()) {
-        let mut tiles = level
+        let positions: Vec<Vec2> = level
             .path
             .iter()
-            .map(|pos| vec2(pos[0], pos[1]) * Vec2::splat(TILE_SIZE) + Vec2::splat(TILE_SIZE / 2.));
+            .map(|pos| vec2(pos[0], pos[1]) * Vec2::splat(TILE_SIZE) + Vec2::splat(TILE_SIZE / 2.))
+            .collect();
+
+        let mut tiles = positions.iter();
 
         let start = tiles.next().unwrap();
+        path.start_position = *start;
+        path.positions.push_back(*start);
+
         commands.spawn(
             Tile::new()
                 .with_sprite(Sprite {
@@ -324,6 +349,9 @@ fn spawn_level(
         );
 
         let end = tiles.next_back().unwrap();
+        path.end_position = *end;
+        path.positions.push_front(*end);
+
         commands.spawn(
             Tile::new()
                 .with_sprite(Sprite {
@@ -334,12 +362,14 @@ fn spawn_level(
         );
 
         // Move camera to middle of the map based on naive assumptions
-        camera_transform.translation += (end - start).extend(0.) / 2.;
+        camera_transform.translation += (*end - *start).extend(0.) / 2.;
 
         for pos in tiles {
+            path.positions.push_back(*pos);
             commands.spawn(Tile::new().with_position(pos.extend(0.)));
         }
 
+        info!("{:#?}", path);
         state.set(AppState::Level).unwrap();
     }
 }
@@ -429,7 +459,9 @@ fn handle_collisions(
 ) {
     let (cursor_transform, mut cursor) = cursor_q.single_mut();
     let transform = child_q.single();
-    let transform = transform.with_scale(transform.scale * cursor_transform.scale);
+    let transform =
+        transform.with_scale((transform.scale / (1. / SPRITE_SIZE)) * cursor_transform.scale);
+    let mut colliding = false;
 
     for (collider_transform, _c) in &collider_q {
         let collision = collide(
@@ -439,8 +471,12 @@ fn handle_collisions(
             collider_transform.scale.truncate(),
         );
 
-        cursor.can_place = collision.is_none();
+        if collision.is_some() {
+            colliding = true;
+            break;
+        }
     }
+    cursor.can_place = !colliding;
 }
 
 fn handle_sell(
@@ -463,6 +499,14 @@ fn handle_sell(
             }
         }
     }
+}
+
+fn game_tick(
+    mut commands: Commands,
+    mut path: ResMut<Path>, //
+    mut potato_q: Query<(&mut Transform, &mut Potato)>,
+) {
+    if potato_q.iter().count() < 5 {}
 }
 
 fn update_scoreboard(scoreboard: Res<Scoreboard>, mut query: Query<&mut Text>) {
