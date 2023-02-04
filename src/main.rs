@@ -57,7 +57,8 @@ fn main() {
                 .with_system(handle_cursor_visibility)
                 .with_system(handle_sell)
                 .with_system(handle_shop)
-                .with_system(game_tick),
+                .with_system(animate_sprite)
+                .with_system(game_tick.after(animate_sprite)),
         )
         .add_system(update_scoreboard)
         .add_system(bevy::window::close_on_esc)

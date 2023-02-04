@@ -146,31 +146,33 @@ impl Tile {
 
 #[derive(Bundle)]
 pub struct EnemyBundle {
-    pub sprite_bundle: SpriteBundle,
+    pub sprite_sheet_bundle: SpriteSheetBundle,
+    // pub sprite_bundle: SpriteBundle,
     pub enemy: Enemy,
 }
 
 impl EnemyBundle {
-    pub fn new(enemy: Enemy, asset_server: &Res<AssetServer>) -> Self {
+    pub fn new(
+        enemy: Enemy,
+        asset_server: &Res<AssetServer>,
+        texture_atlases: &mut ResMut<Assets<TextureAtlas>>,
+    ) -> Self {
+        let atlas = enemy.atlas(asset_server);
+        let tah = texture_atlases.add(atlas); // FIXME adding the texture every time is probably wrong
+
         Self {
-            sprite_bundle: SpriteBundle {
+            sprite_sheet_bundle: SpriteSheetBundle {
                 transform: Transform::from_scale(
                     Vec2::splat(TILE_SIZE / SPRITE_SIZE).extend(ENEMY_LAYER),
                 ),
-                texture: enemy.sprite(asset_server),
+                texture_atlas: tah,
                 ..default()
             },
             enemy,
         }
     }
-
-    pub fn with_texture(mut self, texture: Texture) -> Self {
-        self.sprite_bundle.texture = texture;
-        self
-    }
-
     pub fn with_position(mut self, translation: Vec3) -> Self {
-        self.sprite_bundle.transform.translation = translation;
+        self.sprite_sheet_bundle.transform.translation = translation;
         self
     }
 }
@@ -188,20 +190,26 @@ impl Enemy {
             * match self.kind {
                 EnemyKind::Potato => 2.,
                 EnemyKind::Carrot => 4.,
+                EnemyKind::Pepper => 1.,
             }
     }
 
-    pub fn sprite(&self, asset_server: &Res<AssetServer>) -> Handle<Image> {
-        asset_server.load(match self.kind {
+    pub fn atlas(&self, asset_server: &Res<AssetServer>) -> TextureAtlas {
+        let texture_handle = asset_server.load(match self.kind {
             EnemyKind::Potato => "resources/potato.png",
             EnemyKind::Carrot => "resources/carrot.png",
-        })
+            EnemyKind::Pepper => "resources/pepper.png",
+        });
+
+        TextureAtlas::from_grid(texture_handle, Vec2::new(32.0, 32.0), 4, 1, None, None)
     }
 }
 
+#[derive(Debug, Clone)]
 pub enum EnemyKind {
     Potato,
     Carrot,
+    Pepper,
 }
 
 #[derive(Resource, Default, Debug)]

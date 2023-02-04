@@ -18,6 +18,7 @@ pub fn setup(
     windows: Res<Windows>,
     asset_server: Res<AssetServer>,
     mut images: ResMut<Assets<Image>>,
+    mut texture_atlases: ResMut<Assets<TextureAtlas>>,
 ) {
     // level
     let level = LevelHandle(asset_server.load("map.json"));
@@ -95,6 +96,66 @@ pub fn setup(
     // Scoreboard
     let font = asset_server.load("fonts/ComicMono.ttf");
     commands.spawn(GUIBundle::new(font));
+
+    // Textures
+    // let texture_handle = asset_server.load("resources/potato.png");
+    // let texture_atlas =
+    //     TextureAtlas::from_grid(texture_handle, Vec2::new(32.0, 32.0), 1, 1, None, None);
+    // texture_atlases.add(texture_atlas);
+
+    // let texture_handle = asset_server.load("resources/carrot.png");
+    // let texture_atlas =
+    //     TextureAtlas::from_grid(texture_handle, Vec2::new(32.0, 32.0), 1, 1, None, None);
+    // texture_atlases.add(texture_atlas);
+
+    // let texture_handle = asset_server.load("resources/pepper.png");
+    // let texture_atlas =
+    //     TextureAtlas::from_grid(texture_handle, Vec2::new(32.0, 32.0), 4, 1, None, None);
+    // let th = texture_atlases.add(texture_atlas);
+
+    // let animation_indices = AnimationIndices { first: 0, last: 3 };
+    // commands.spawn((
+    //     EnemyBundle::new(
+    //         Enemy {
+    //             kind: EnemyKind::Pepper,
+    //             idx: 0,
+    //         },
+    //         &asset_server,
+    //         &mut texture_atlases,
+    //     )
+    //     .with_position(Vec3::splat(1.)),
+    //     animation_indices,
+    //     AnimationTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
+    // ));
+}
+
+#[derive(Component)]
+pub struct AnimationIndices {
+    first: usize,
+    last: usize,
+}
+
+#[derive(Component, Deref, DerefMut)]
+pub struct AnimationTimer(Timer);
+
+pub fn animate_sprite(
+    time: Res<Time>,
+    mut query: Query<(
+        &AnimationIndices,
+        &mut AnimationTimer,
+        &mut TextureAtlasSprite,
+    )>,
+) {
+    for (indices, mut timer, mut sprite) in &mut query {
+        timer.tick(time.delta());
+        if timer.just_finished() {
+            sprite.index = if sprite.index == indices.last {
+                indices.first
+            } else {
+                sprite.index + 1
+            };
+        }
+    }
 }
 
 pub fn spawn_level(
@@ -327,8 +388,9 @@ pub fn game_tick(
     asset_server: Res<AssetServer>,
     mut path: ResMut<Path>, //
     mut enemy_q: Query<(&mut Transform, &mut Enemy)>,
+    mut texture_atlases: ResMut<Assets<TextureAtlas>>,
 ) {
-    if enemy_q.iter().count() < 1 {
+    if enemy_q.iter().count() < 1000 {
         commands.spawn(
             EnemyBundle::new(
                 Enemy {
@@ -336,9 +398,25 @@ pub fn game_tick(
                     idx: 0,
                 },
                 &asset_server,
+                &mut texture_atlases,
             )
             .with_position(path.start_position.extend(ENEMY_LAYER)),
         );
+
+        let animation_indices = AnimationIndices { first: 0, last: 3 };
+        commands.spawn((
+            EnemyBundle::new(
+                Enemy {
+                    kind: EnemyKind::Pepper,
+                    idx: 0,
+                },
+                &asset_server,
+                &mut texture_atlases,
+            )
+            .with_position(path.start_position.extend(0.)),
+            animation_indices,
+            AnimationTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
+        ));
     }
 
     for (mut enemy_transform, mut enemy) in enemy_q.iter_mut() {
