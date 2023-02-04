@@ -3,7 +3,7 @@ use std::collections::VecDeque;
 use bevy::reflect::TypeUuid;
 use bevy::{math::*, prelude::*};
 
-use crate::{Texture, CURSOR_COLOR, SPRITE_SIZE, TILE_COLOR, TILE_SIZE, WALL_COLOR};
+use crate::{Texture, CURSOR_COLOR, SPRITE_SIZE, TILE_COLOR, TILE_SIZE, TIME_STEP, WALL_COLOR};
 
 #[derive(serde::Deserialize, TypeUuid, Debug)]
 #[uuid = "413be529-bfeb-41b3-9db0-4b8b380a2c46"]
@@ -183,8 +183,8 @@ pub struct Enemy {
 impl Enemy {
     pub fn speed(&self) -> f32 {
         match self.kind {
-            EnemyKind::Potato => 0.2,
-            EnemyKind::Carrot => 0.4,
+            EnemyKind::Potato => 2. * TIME_STEP * TILE_SIZE,
+            EnemyKind::Carrot => 4. * TIME_STEP * TILE_SIZE,
         }
     }
 }
