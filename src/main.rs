@@ -63,9 +63,9 @@ fn main() {
             SystemSet::new()
                 .with_run_criteria(FixedTimestep::step(TIME_STEP as f64))
                 .with_system(move_cursor)
-                .with_system(handle_place)
-                .with_system(handle_cursor_visibility)
                 .with_system(handle_collisions)
+                .with_system(handle_place.after(handle_collisions))
+                .with_system(handle_cursor_visibility)
                 .with_system(handle_sell),
         )
         .add_system_set(
@@ -126,7 +126,7 @@ impl Cursor {
 
 #[derive(Component, Debug, Default)]
 struct GridCursor {
-    can_place: u8,
+    can_place: bool,
     last_target_pos: Vec2,
     last_sample: f32,
 }
@@ -457,6 +457,7 @@ fn move_cursor(
     let window_size = Vec2::new(window.width(), window.height());
     let camera_transform = camera_q.get_single().unwrap();
 
+    // TODO clean this ugly mess
     if let Some(cursor_position) = window.cursor_position() {
         let elapsed = time.elapsed().as_secs_f32();
         let (mut cursor_transform, mut grid_cursor) = query.get_single_mut().unwrap();
@@ -472,15 +473,16 @@ fn move_cursor(
         const EASE_TIME: f32 = 1.0;
         let dt = elapsed - grid_cursor.last_sample;
 
+        info!("{}", grid_cursor.can_place);
         let newp = prev_pos + delta * ease(dt / EASE_TIME);
         cursor_transform.translation = newp.extend(0.);
+        if grid_cursor.last_target_pos == newp {
+            // if the cursor hasn't moved
+        }
         if grid_cursor.last_target_pos != target_pos_grid {
             // if the target grid has changed
             grid_cursor.last_target_pos = target_pos_grid;
             grid_cursor.last_sample = elapsed - 0.1;
-            grid_cursor.can_place &= 0x01;
-        } else {
-            grid_cursor.can_place |= 0x10;
         }
     } else {
         // Window is not active => game should be paused
@@ -494,7 +496,7 @@ fn handle_cursor_visibility(
     let cursor = cursor_q.get_single().unwrap();
     let mut sprite = child_q.get_single_mut().unwrap();
 
-    sprite.color = if cursor.can_place == 0x11 {
+    sprite.color = if cursor.can_place {
         WALL_COLOR
     } else {
         ERROR_COLOR
@@ -511,7 +513,7 @@ fn handle_place(
     let (cursor_transform, cursor) = cursor_q.get_single().unwrap();
     let (transform, placeable) = child_q.get_single().unwrap();
 
-    if cursor.can_place != 0x11 {
+    if !cursor.can_place {
         return;
     }
 
@@ -521,7 +523,8 @@ fn handle_place(
             Placeable::Turret => {
                 let texture = asset_server.load("resources/potato.png");
                 let cursor_transform =
-                    cursor_transform.with_scale(cursor_transform.scale * transform.scale);
+                    Transform::from_xyz(cursor.last_target_pos.x, cursor.last_target_pos.y, 0.)
+                        .with_scale(cursor_transform.scale * transform.scale);
                 commands.spawn(
                     Turret::new()
                         .with_transform(cursor_transform)
@@ -533,19 +536,21 @@ fn handle_place(
 }
 
 fn handle_collisions(
-    mut cursor_q: Query<(&Transform, &mut GridCursor)>,
+    mut cursor_q: Query<&mut GridCursor>,
     child_q: Query<&Transform, With<Placeable>>,
     collider_q: Query<(&Transform, &Collider), Without<GridCursor>>,
 ) {
-    let (cursor_transform, mut cursor) = cursor_q.single_mut();
+    let mut cursor = cursor_q.single_mut();
     let transform = child_q.single();
-    let transform =
-        transform.with_scale((transform.scale / (1. / SPRITE_SIZE)) * cursor_transform.scale);
+
+    let cursor_transform = cursor.last_target_pos.extend(0.);
+    let transform = transform.with_scale((transform.scale * SPRITE_SIZE) * TILE_SIZE);
+
     let mut colliding = false;
 
     for (collider_transform, _c) in &collider_q {
         let collision = collide(
-            cursor_transform.translation,
+            cursor_transform,
             transform.scale.truncate(),
             collider_transform.translation,
             collider_transform.scale.truncate(),
@@ -556,26 +561,23 @@ fn handle_collisions(
             break;
         }
     }
-    if colliding {
-        cursor.can_place &= 0x10;
-    } else {
-        cursor.can_place |= 0x01;
-    }
+
+    cursor.can_place = !colliding;
 }
 
 fn handle_sell(
     mut commands: Commands,
-    mut cursor_q: Query<&Transform, With<GridCursor>>,
+    cursor_q: Query<&GridCursor>,
     collider_q: Query<(&Transform, Entity, &Collider), Without<GridCursor>>,
     buttons: Res<Input<MouseButton>>,
 ) {
-    let cursor_transform = cursor_q.single_mut();
+    let grid_cursor = cursor_q.single();
 
     if buttons.just_pressed(MouseButton::Right) {
         for (collider_transform, entity, _c) in &collider_q {
             if let Some(Collision::Inside) = collide(
-                cursor_transform.translation,
-                cursor_transform.scale.truncate(),
+                grid_cursor.last_target_pos.extend(0.),
+                vec2(0., 0.),
                 collider_transform.translation,
                 collider_transform.scale.truncate(),
             ) {
