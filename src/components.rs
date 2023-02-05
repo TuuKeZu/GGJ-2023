@@ -266,11 +266,16 @@ impl Tile {
         Self {
             sprite_bundle: SpriteBundle {
                 transform: Transform::from_scale(Vec2::splat(TILE_SIZE / SPRITE_SIZE).extend(0.)),
-                texture: asset_server.load(if rng.gen_range(0..10) == 0 {
-                    "resources/grass.png"
-                } else {
-                    "resources/dirt.png"
-                }),
+                texture: {
+                    let r = rng.gen_range(0..50);
+                    asset_server.load(if r < 5 {
+                        "resources/grass.png"
+                    } else if r < 7 {
+                        "resources/stone.png"
+                    } else {
+                        "resources/dirt.png"
+                    })
+                },
                 ..default()
             },
         }
@@ -302,11 +307,13 @@ impl PathTile {
                 transform: Transform::from_scale(
                     Vec2::splat(TILE_SIZE / SPRITE_SIZE).extend(PATH_LAYER),
                 ),
-                texture: asset_server.load(if rng.gen_range(0..10) == 0 {
-                    "resources/overgrown_path.png"
-                } else {
-                    "resources/path.png"
-                }),
+                texture: {
+                    asset_server.load(if rng.gen_range(0..10) == 0 {
+                        "resources/overgrown_path.png"
+                    } else {
+                        "resources/path.png"
+                    })
+                },
                 ..default()
             },
             collider: Collider,
