@@ -2,6 +2,7 @@ use std::{f32::consts::PI, time::Duration};
 
 use bevy::{
     core_pipeline::bloom::BloomSettings,
+    diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin},
     math::*,
     prelude::*,
     sprite::collide_aabb::{collide, Collision},
@@ -28,7 +29,7 @@ pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..default()
         },
         BloomSettings {
-            threshold: 0.2,
+            threshold: 0.15,
             ..default()
         },
     ));
@@ -38,6 +39,7 @@ pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     // Scoreboard
     let font = asset_server.load("fonts/ComicMono.ttf");
+    commands.spawn(FPSBundle::new(font.clone()));
     commands.spawn(GUIBundle::new(font));
 
     commands.spawn(
@@ -455,31 +457,6 @@ pub fn handle_shop(
     }
 }
 
-pub fn update_scoreboard(
-    menu: Res<Menu>,
-    mut query: Query<&mut Text>,
-    windows: Res<Windows>,
-    camera_q: Query<&Transform, With<Camera>>,
-) {
-    let window = windows.get_primary().unwrap();
-    let window_size = Vec2::new(window.width(), window.height());
-    let camera_transform = camera_q.get_single().unwrap();
-    let mut text = query.single_mut();
-
-    if let Some(cursor_position) = window.cursor_position() {
-        let mut cursor_grid =
-            cursor_position - (window_size / 2.) + camera_transform.translation.truncate();
-
-        cursor_grid = (cursor_grid / TILE_SIZE).floor();
-        text.sections[1].value = format!(
-            "{:?} {:>3} {:>3}",
-            menu.current_item, cursor_grid.x, cursor_grid.y
-        );
-    } else {
-        text.sections[1].value = format!("{:?} --- ---", menu.current_item);
-    }
-}
-
 pub fn handle_gunners(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
@@ -591,6 +568,42 @@ pub fn handle_projectiles(
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+pub fn update_scoreboard(
+    menu: Res<Menu>,
+    mut query: Query<&mut Text, With<GUIText>>,
+    windows: Res<Windows>,
+    camera_q: Query<&Transform, With<Camera>>,
+) {
+    let window = windows.get_primary().unwrap();
+    let window_size = Vec2::new(window.width(), window.height());
+    let camera_transform = camera_q.get_single().unwrap();
+    if let Ok(mut text) = query.get_single_mut() {
+        if let Some(cursor_position) = window.cursor_position() {
+            let mut cursor_grid =
+                cursor_position - (window_size / 2.) + camera_transform.translation.truncate();
+
+            cursor_grid = (cursor_grid / TILE_SIZE).floor();
+            text.sections[1].value = format!(
+                "{:?} {:>3} {:>3}",
+                menu.current_item, cursor_grid.x, cursor_grid.y
+            );
+        } else {
+            text.sections[1].value = format!("{:?} --- ---", menu.current_item);
+        }
+    }
+}
+
+pub fn update_fps(diagnostics: Res<Diagnostics>, mut query: Query<&mut Text, With<FPSText>>) {
+    if let Ok(mut text) = query.get_single_mut() {
+        if let Some(fps) = diagnostics.get(FrameTimeDiagnosticsPlugin::FPS) {
+            if let Some(value) = fps.smoothed() {
+                // Update the value of the second section
+                text.sections[1].value = format!("{:.2}", value);
             }
         }
     }

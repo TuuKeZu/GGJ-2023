@@ -1,4 +1,4 @@
-use bevy::{math::*, prelude::*, time::FixedTimestep};
+use bevy::{diagnostic::FrameTimeDiagnosticsPlugin, math::*, prelude::*, time::FixedTimestep};
 
 use bevy_common_assets::json::JsonAssetPlugin;
 
@@ -46,6 +46,7 @@ pub type Texture = bevy::prelude::Handle<bevy::prelude::Image>;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
+        .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .add_plugin(JsonAssetPlugin::<Level>::new(&["json"]))
         .insert_resource(ClearColor(BACKGROUND_COLOR))
         .insert_resource(Menu {
@@ -70,7 +71,7 @@ fn main() {
                 .with_system(game_tick),
         )
         .add_system(update_scoreboard)
-        .add_system(bevy::window::close_on_esc)
+        .add_system(update_fps)
         .run();
 }
 
