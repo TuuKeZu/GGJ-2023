@@ -24,6 +24,7 @@ pub enum ColliderType {
     Tile,
     Turret,
     Projectile,
+    Decor,
 }
 
 #[derive(Bundle, Default)]

@@ -165,6 +165,18 @@ pub fn spawn_level(
             commands.spawn(PathTile::new(&asset_server).with_position(pos.extend(PATH_LAYER)));
         }
 
+        for (image_path, pos, blocks) in level.decor.into_iter() {
+            let decor_asset = asset_server.load::<Image, _>(image_path);
+            let decor_pos = vec2(pos[0], pos[1]) * TILE_SIZE + Vec2::splat(TILE_SIZE / 2.);
+            let tile =
+                Tile::new_decor(decor_asset).with_position(decor_pos.extend(PATH_LAYER + 0.1));
+            if blocks {
+                commands.spawn((tile, Collider(ColliderType::Decor)));
+            } else {
+                commands.spawn(tile);
+            }
+        }
+
         state.set(AppState::Level).unwrap();
     }
 }
