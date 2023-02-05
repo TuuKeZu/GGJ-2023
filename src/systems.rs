@@ -512,6 +512,8 @@ pub fn handle_projectiles(
     mut projectile_q: Query<(Entity, &mut Transform, &Collider, &mut Projectile)>,
     mut enemies: Query<(Entity, &mut Enemy, &Transform, &Collider), Without<Projectile>>,
 ) {
+    let mut rng = thread_rng();
+
     for (enemy_ent, mut enemy, enemy_t, _) in enemies.iter_mut() {
         for (projectile_ent, mut projectile_t, _, mut projectile) in projectile_q.iter_mut() {
             if projectile_t.translation.x > MAP_SIZE as f32 * TILE_SIZE
@@ -530,7 +532,7 @@ pub fn handle_projectiles(
 
             let collision = collide(
                 projectile_t.translation,
-                Vec2::ZERO,
+                projectile.scale(),
                 enemy_t.translation,
                 enemy_scale,
             );
@@ -538,10 +540,14 @@ pub fn handle_projectiles(
             let enemy_entid = commands.entity(enemy_ent).id();
             if collision.is_some() && !projectile.hit_enemies.contains(&enemy_entid) {
                 projectile.health -= 1;
-            }
-            if projectile.health <= 0 {
                 enemy.health -= 1;
                 projectile.hit_enemies.push(enemy_entid);
+                projectile_t.rotation *= Quat::from_euler(
+                    EulerRot::XYZ,
+                    0.,
+                    0.,
+                    rng.gen_range(-MAX_DEFLECTION_ANGLE..MAX_DEFLECTION_ANGLE),
+                );
             }
 
             if projectile.health <= 0 {
@@ -618,7 +624,7 @@ pub fn update_fps(diagnostics: Res<Diagnostics>, mut query: Query<&mut Text, Wit
         if let Some(fps) = diagnostics.get(FrameTimeDiagnosticsPlugin::FPS) {
             if let Some(value) = fps.smoothed() {
                 // Update the value of the second section
-                text.sections[1].value = format!("{:.2}", value);
+                text.sections[1].value = format!("{value:.2}");
             }
         }
     }

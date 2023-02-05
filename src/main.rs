@@ -1,3 +1,5 @@
+use std::f32::consts::PI;
+
 use bevy::{diagnostic::FrameTimeDiagnosticsPlugin, math::*, prelude::*, time::FixedTimestep};
 
 use bevy_common_assets::json::JsonAssetPlugin;
@@ -40,6 +42,8 @@ pub const PATH_LAYER: f32 = 2.;
 
 pub const ENEMY_LAYER: f32 = 5.;
 pub const CURSOR_LAYER: f32 = 10.;
+
+pub const MAX_DEFLECTION_ANGLE: f32 = 10. * PI / 180.;
 
 pub type Texture = bevy::prelude::Handle<bevy::prelude::Image>;
 

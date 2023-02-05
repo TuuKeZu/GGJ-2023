@@ -242,7 +242,7 @@ impl Projectile {
         match self.ty {
             ProjectileType::Knife => Vec2::splat(1. / SPRITE_SIZE),
             ProjectileType::Spoon => Vec2::splat(1. / SPRITE_SIZE),
-            ProjectileType::ChefsKnife => Vec2::splat(1. / SPRITE_SIZE),
+            ProjectileType::ChefsKnife => Vec2::splat(2. / SPRITE_SIZE),
         }
     }
 
