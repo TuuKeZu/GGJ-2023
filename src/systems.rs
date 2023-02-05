@@ -1,3 +1,4 @@
+use core::panic;
 use std::{f32::consts::PI, time::Duration};
 
 use bevy::{
@@ -18,6 +19,12 @@ pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // level
     let level = LevelHandle(asset_server.load("map.json"));
     commands.insert_resource(level);
+
+    let enemylist = RoundList(vec![Round(vec![
+        (5, EnemyKind::Potato),
+        (3, EnemyKind::Carrot),
+    ])]);
+    commands.insert_resource(enemylist);
 
     // Camera
     commands.spawn((
@@ -203,6 +210,8 @@ pub fn spawn_level(
             }
         }
 
+        commands.insert_resource(RoundCounter::default());
+
         state.set(AppState::Level).unwrap();
     }
 }
@@ -380,29 +389,54 @@ pub fn game_tick(
     mut path: ResMut<Path>, //
     mut enemy_q: Query<(&mut Transform, &mut Enemy)>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
+    mut round_counter: ResMut<RoundCounter>,
+    roundlist: Res<RoundList>,
 ) {
     if enemy_q.iter().count() < 1 {
-        commands.spawn((
-            EnemyBundle::new(
-                Enemy::new(EnemyKind::Carrot, 0),
-                &asset_server,
-                &mut texture_atlases,
-            )
-            .with_position(path.start_position.extend(ENEMY_LAYER)),
-            Collider(ColliderType::Enemy),
-        ));
+        round_counter.next();
 
-        commands.spawn((
-            EnemyBundle::new(
-                Enemy::new(EnemyKind::Potato, 0),
-                &asset_server,
-                &mut texture_atlases,
-            )
-            .with_position(path.start_position.extend(0.)),
-            // AnimationIndices { first: 0, last: 3 },
-            // AnimationTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
-            Collider(ColliderType::Enemy),
-        ));
+        let enemylist = (*roundlist).0.get(round_counter.0 - 1);
+
+        if enemylist.is_none() {
+            panic!("No more levels");
+        }
+
+        for (amount, kind) in &enemylist.unwrap().0 {
+            for _ in 0..*amount {
+                commands.spawn((
+                    EnemyBundle::new(
+                        Enemy::new(kind.clone(), 0),
+                        &asset_server,
+                        &mut texture_atlases,
+                    )
+                    .with_position(path.start_position.extend(0.)),
+                    Collider(ColliderType::Enemy),
+                ));
+            }
+        }
+
+        // commands.spawn((
+        //     EnemyBundle::new(
+        //         Enemy::new(EnemyKind::Carrot, 0),
+        //         &asset_server,
+        //         &mut texture_atlases,
+        //     )
+        //     .with_position(path.start_position.extend(ENEMY_LAYER)),
+        //     Collider(ColliderType::Enemy),
+        // ));
+
+        // let animation_indices = AnimationIndices { first: 0, last: 3 };
+        // commands.spawn((
+        //     EnemyBundle::new(
+        //         Enemy::new(EnemyKind::Pepper, 0),
+        //         &asset_server,
+        //         &mut texture_atlases,
+        //     )
+        //     .with_position(path.start_position.extend(0.)),
+        //     animation_indices,
+        //     AnimationTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
+        //     Collider(ColliderType::Enemy),
+        // ));
     }
 
     for (mut enemy_transform, mut enemy) in enemy_q.iter_mut() {

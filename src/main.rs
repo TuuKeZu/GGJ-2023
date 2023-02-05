@@ -87,6 +87,7 @@ fn main() {
             current_item: MenuItem::Turret2x2,
         })
         .insert_resource(Path::default())
+        .insert_resource(RoundCounter::default())
         .add_state(AppState::Loading)
         .add_startup_system(setup)
         .add_system_set(SystemSet::on_update(AppState::Loading).with_system(spawn_level))

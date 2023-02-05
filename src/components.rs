@@ -1,4 +1,5 @@
 use std::collections::VecDeque;
+use std::default;
 use std::time::Duration;
 
 use bevy::reflect::TypeUuid;
@@ -458,7 +459,7 @@ impl Enemy {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Deserialize)]
 pub enum EnemyKind {
     Potato,
     Carrot,
@@ -509,3 +510,22 @@ impl MenuItem {
 pub struct Menu {
     pub current_item: MenuItem,
 }
+
+#[derive(Debug, Resource)]
+pub struct RoundCounter(pub usize);
+
+impl RoundCounter {
+    pub fn default() -> Self {
+        Self(0)
+    }
+
+    pub fn next(&mut self) {
+        self.0 += 1
+    }
+}
+
+#[derive(Debug, Resource)]
+pub struct RoundList(pub Vec<Round>);
+
+#[derive(Debug, Resource)]
+pub struct Round(pub Vec<(usize, EnemyKind)>);
