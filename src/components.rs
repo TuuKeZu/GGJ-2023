@@ -46,13 +46,14 @@ impl Cursor {
 }
 
 #[derive(Component, Debug)]
-pub struct Selected {}
+pub struct Selected;
 
 #[derive(Component, Debug, Default)]
 pub struct GridCursor {
     pub can_place: bool,
     pub last_target_pos: Vec2,
     pub last_sample: f32,
+    pub selection_size: Vec2,
 }
 
 #[derive(Component, Debug, Clone, Copy)]

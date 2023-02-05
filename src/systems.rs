@@ -30,15 +30,8 @@ pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         },
     ));
 
-    let turret = commands
-        .spawn((
-            TurretBundle::new(Turret::Turret2x2, &asset_server),
-            Selected {},
-        ))
-        .id();
-
     // Cursor
-    commands.spawn(Cursor::new()).add_child(turret);
+    commands.spawn(Cursor::new());
 
     // Scoreboard
     let font = asset_server.load("fonts/ComicMono.ttf");
@@ -194,6 +187,7 @@ pub fn move_cursor(
         let mut target_pos_grid =
             cursor_position - (window_size / 2.) + camera_transform.translation.truncate();
 
+        // 1 round of magic
         if sprite.scale.z as i32 % 2 == 0 {
             target_pos_grid -= Vec2::splat(TILE_SIZE / 2.);
         }
@@ -201,6 +195,7 @@ pub fn move_cursor(
         target_pos_grid =
             (target_pos_grid / TILE_SIZE).floor() * TILE_SIZE + Vec2::splat(TILE_SIZE / 2.);
 
+        // 2 rounds of magic
         if sprite.scale.z as i32 % 2 == 0 {
             target_pos_grid += Vec2::splat(TILE_SIZE / 2.);
         }
@@ -267,27 +262,28 @@ pub fn handle_place(
 
 pub fn handle_collisions(
     mut cursor_q: Query<&mut GridCursor>,
-    child_q: Query<&Transform, With<Selected>>,
+    child_q: Query<(&Transform, &Turret), With<Selected>>,
     collider_q: Query<
         (&Transform, &Collider),
         (Without<GridCursor>, Without<Selected>, Without<Turret>),
     >,
-    turret_q: Query<(&Transform, &Collider), (With<Turret>, Without<Selected>)>,
+    turret_q: Query<(&Transform, &Collider, &Turret), Without<Selected>>,
 ) {
     let mut cursor = cursor_q.single_mut();
-    if let Ok(c_transform) = child_q.get_single() {
+    if let Ok((c_transform, turret)) = child_q.get_single() {
         let cursor_transform = cursor.last_target_pos.extend(0.);
         let c_transform = c_transform.with_scale((c_transform.scale * SPRITE_SIZE) * TILE_SIZE);
 
         let mut colliding = false;
 
-        for (collider_transform, _c) in turret_q.iter() {
+        for (collider_transform, _c, turret) in turret_q.iter() {
+            // check turret yes yes
             let collider_transform =
                 collider_transform.with_scale(collider_transform.scale / SPRITE_SIZE);
 
             let collision = collide(
                 cursor_transform,
-                c_transform.scale.zz(),
+                turret.scale(),
                 collider_transform.translation,
                 collider_transform.scale.truncate(),
             );
@@ -299,9 +295,10 @@ pub fn handle_collisions(
         }
 
         for (collider_transform, _c) in collider_q.iter() {
+            // check turret in cursor <=> something colliding
             let collision = collide(
                 cursor_transform,
-                c_transform.scale.zz(),
+                turret.scale(),
                 collider_transform.translation,
                 collider_transform.scale.truncate(),
             );
@@ -393,7 +390,7 @@ pub fn game_tick(
 pub fn handle_shop(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    cursor_q: Query<Entity, With<GridCursor>>,
+    mut cursor_q: Query<(Entity, &mut GridCursor)>,
     selected_q: Query<(Entity, &Transform), With<Selected>>,
     mut menu: ResMut<Menu>,
     keys: Res<Input<KeyCode>>,
@@ -410,29 +407,19 @@ pub fn handle_shop(
         };
 
         menu.current_item = item_map[idx];
+        let (cursor_ent, mut cursor) = cursor_q.single_mut();
         if let Ok((child, _)) = selected_q.get_single() {
-            let cursor = cursor_q.single();
-            let new_child = match item_map[idx] {
-                MenuItem::Turret1x1 => commands
-                    .spawn((
-                        TurretBundle::new(Turret::Turret1x1, &asset_server),
-                        Selected {},
-                    ))
-                    .id(),
-                MenuItem::Turret2x2 => commands
-                    .spawn((
-                        TurretBundle::new(Turret::Turret2x2, &asset_server),
-                        Selected {},
-                    ))
-                    .id(),
-            };
-
-            commands.entity(cursor).remove_children(&[child]);
+            commands.entity(cursor_ent).remove_children(&[child]);
             commands.entity(child).despawn();
-            commands.entity(cursor).add_child(new_child);
         }
+        let new_turret = match item_map[idx] {
+            MenuItem::Turret1x1 => TurretBundle::new(Turret::Turret1x1, &asset_server),
+            MenuItem::Turret2x2 => TurretBundle::new(Turret::Turret2x2, &asset_server),
+        };
 
-        //commands.entity(cursor).remove_children(children)
+        cursor.selection_size = new_turret.turret.scale();
+        let child = commands.spawn((new_turret, Selected)).id();
+        commands.entity(cursor_ent).add_child(child);
     }
 }
 
