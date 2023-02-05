@@ -374,10 +374,7 @@ pub fn game_tick(
     if enemy_q.iter().count() < 1 {
         commands.spawn((
             EnemyBundle::new(
-                Enemy {
-                    kind: EnemyKind::Carrot,
-                    idx: 0,
-                },
+                Enemy::new(EnemyKind::Carrot, 0),
                 &asset_server,
                 &mut texture_atlases,
             )
@@ -388,10 +385,7 @@ pub fn game_tick(
         let animation_indices = AnimationIndices { first: 0, last: 3 };
         commands.spawn((
             EnemyBundle::new(
-                Enemy {
-                    kind: EnemyKind::Pepper,
-                    idx: 0,
-                },
+                Enemy::new(EnemyKind::Pepper, 0),
                 &asset_server,
                 &mut texture_atlases,
             )
@@ -525,21 +519,27 @@ pub fn handle_gunners(
 
 pub fn handle_projectiles(
     mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut texture_atlases: ResMut<Assets<TextureAtlas>>,
     mut projectile_q: Query<(Entity, &mut Transform, &Collider, &mut Projectile)>,
-    enemies: Query<(Entity, &Transform, &Collider), (With<Enemy>, Without<Projectile>)>,
+    mut enemies: Query<(&mut Enemy, Entity, &Transform, &Collider), Without<Projectile>>,
 ) {
-    for (projectile_ent, mut projectile_t, _, mut projectile) in projectile_q.iter_mut() {
-        if projectile_t.translation.x > MAP_SIZE as f32 * TILE_SIZE
-            || projectile_t.translation.y > MAP_SIZE as f32 * TILE_SIZE
-            || projectile_t.translation.x < -MAP_SIZE as f32 * TILE_SIZE
-            || projectile_t.translation.y < -MAP_SIZE as f32 * TILE_SIZE
-        {
-            commands.entity(projectile_ent).despawn();
-        }
-        let dir = projectile_t.rotation * Vec3::X;
-        projectile_t.translation -= projectile.velocity() * dir;
+    for (mut enemy, enemy_ent, enemy_t, _) in enemies.iter_mut() {
+        let mut rng = thread_rng();
 
-        for (enemy_ent, enemy_t, _) in enemies.iter() {
+        for (projectile_ent, mut projectile_t, _, mut projectile) in projectile_q.iter_mut() {
+            if projectile_t.translation.x > MAP_SIZE as f32 * TILE_SIZE
+                || projectile_t.translation.y > MAP_SIZE as f32 * TILE_SIZE
+                || projectile_t.translation.x < -MAP_SIZE as f32 * TILE_SIZE
+                || projectile_t.translation.y < -MAP_SIZE as f32 * TILE_SIZE
+            {
+                commands.entity(projectile_ent).despawn();
+            }
+
+            let dir = projectile_t.rotation * Vec3::X;
+
+            projectile_t.translation -= projectile.velocity() * dir;
+
             let enemy_scale = enemy_t.scale.truncate() * 16.0; // TODO fix relative scale of enemies
 
             let collision = collide(
@@ -550,11 +550,41 @@ pub fn handle_projectiles(
             );
 
             if collision.is_some() {
-                commands.entity(enemy_ent).despawn();
                 projectile.health -= 1;
             }
             if projectile.health <= 0 {
                 commands.entity(projectile_ent).despawn();
+                if projectile.health <= 0 {
+                    commands.entity(projectile_ent).despawn();
+                }
+
+                enemy.health -= 1;
+                if enemy.health <= 0 {
+                    commands.entity(enemy_ent).despawn();
+                    if let Some((amount, kind)) = enemy.split() {
+                        for i in 1..=amount {
+                            let j = i as f32;
+                            commands.spawn((
+                                EnemyBundle::new(
+                                    Enemy::new(kind.clone(), enemy.idx),
+                                    &asset_server,
+                                    &mut texture_atlases,
+                                )
+                                .with_position(
+                                    enemy_t.translation
+                                        + Vec2::new(
+                                            rng.gen_range(0..TILE_SIZE as i32 / amount) as f32
+                                                * (j - 1.),
+                                            rng.gen_range(0..TILE_SIZE as i32 / amount) as f32
+                                                * (j - 1.),
+                                        )
+                                        .extend(0.),
+                                ),
+                                Collider(ColliderType::Enemy),
+                            ));
+                        }
+                    }
+                }
             }
         }
     }

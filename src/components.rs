@@ -231,7 +231,7 @@ impl Projectile {
         TIME_STEP
             * TILE_SIZE
             * match self.ty {
-                ProjectileType::Knife => 5.0,
+                ProjectileType::Knife => 8.0,
             }
     }
 }
@@ -376,19 +376,36 @@ impl EnemyBundle {
 
 #[derive(Component)]
 pub struct Enemy {
+    pub health: i32,
     pub kind: EnemyKind,
     pub idx: usize,
 }
 
 impl Enemy {
+    pub fn new(kind: EnemyKind, idx: usize) -> Self {
+        Self {
+            health: kind.initial_health(),
+            kind,
+            idx,
+        }
+    }
+
     pub fn speed(&self) -> f32 {
         TIME_STEP
             * TILE_SIZE
             * match self.kind {
-                EnemyKind::Potato => 2.5,
-                EnemyKind::Carrot => 4.,
+                EnemyKind::Potato => 2.,
+                EnemyKind::Carrot => 3.,
                 EnemyKind::Pepper => 1.,
             }
+    }
+
+    pub fn split(&self) -> Option<(i32, EnemyKind)> {
+        match self.kind {
+            EnemyKind::Potato => None,
+            EnemyKind::Carrot => Some((1, EnemyKind::Potato)),
+            EnemyKind::Pepper => Some((4, EnemyKind::Carrot)),
+        }
     }
 
     pub fn atlas(&self, asset_server: &Res<AssetServer>) -> TextureAtlas {
@@ -407,6 +424,16 @@ pub enum EnemyKind {
     Potato,
     Carrot,
     Pepper,
+}
+
+impl EnemyKind {
+    fn initial_health(&self) -> i32 {
+        match self {
+            EnemyKind::Potato => 1,
+            EnemyKind::Carrot => 1,
+            EnemyKind::Pepper => 3,
+        }
+    }
 }
 
 #[derive(Resource, Default, Debug)]
