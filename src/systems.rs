@@ -42,12 +42,12 @@ pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(FPSBundle::new(font.clone()));
     commands.spawn(GUIBundle::new(font));
 
-    commands.spawn(
-        GunBundle::new(Gun::Gun1, &asset_server).with_transform(
-            Transform::from_xyz(-2.5 * TILE_SIZE, -1.5 * TILE_SIZE, 10.)
-                .with_scale(Vec3::splat(TILE_SIZE / SPRITE_SIZE)),
-        ),
-    );
+    // commands.spawn(
+    //     GunBundle::new(Gun::Gun2, &asset_server).with_transform(
+    //         Transform::from_xyz(-2.5 * TILE_SIZE, -1.5 * TILE_SIZE, 10.)
+    //             .with_scale(Vec3::splat(TILE_SIZE / SPRITE_SIZE)),
+    //     ),
+    // );
 
     // Textures
     // let texture_handle = asset_server.load("resources/potato.png");
@@ -149,8 +149,8 @@ pub fn spawn_level(
                 .with_position(end.extend(PATH_LAYER)),
         );
 
-        // Move camera to middle of the map based on naive assumptions
-        camera_transform.translation += (*end - *start).extend(0.) / 2.;
+        // Move camera to middle of the map based on strong assumptions
+        camera_transform.translation += Vec2::from_array(level.center_pos).extend(0.) * TILE_SIZE;
         let mut rng = thread_rng();
 
         for x in -MAP_SIZE..MAP_SIZE {
@@ -241,19 +241,21 @@ pub fn move_cursor(
         let prev_pos = cursor_transform.translation.xy();
         let delta = target_pos_grid - prev_pos;
 
+        if prev_pos == target_pos_grid {
+            grid_cursor.last_sample = elapsed;
+        }
+        if grid_cursor.last_target_pos != target_pos_grid {
+            // if the target grid has changed
+            grid_cursor.last_target_pos = target_pos_grid;
+            // makes continuous target switching feel smooth
+            grid_cursor.last_sample = (grid_cursor.last_sample + elapsed) / 2. - 0.05;
+        }
+
         const EASE_TIME: f32 = 1.0;
         let dt = elapsed - grid_cursor.last_sample;
 
         let newp = prev_pos + delta * ease(dt / EASE_TIME);
         cursor_transform.translation = newp.extend(CURSOR_LAYER);
-        if grid_cursor.last_target_pos == newp {
-            // if the cursor hasn't moved
-        }
-        if grid_cursor.last_target_pos != target_pos_grid {
-            // if the target grid has changed
-            grid_cursor.last_target_pos = target_pos_grid;
-            grid_cursor.last_sample = elapsed - 0.1;
-        }
     } else {
         // Window is not active => game should be paused
     }
@@ -390,16 +392,15 @@ pub fn game_tick(
             Collider(ColliderType::Enemy),
         ));
 
-        let animation_indices = AnimationIndices { first: 0, last: 3 };
         commands.spawn((
             EnemyBundle::new(
-                Enemy::new(EnemyKind::Pepper, 0),
+                Enemy::new(EnemyKind::Potato, 0),
                 &asset_server,
                 &mut texture_atlases,
             )
             .with_position(path.start_position.extend(0.)),
-            animation_indices,
-            AnimationTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
+            // AnimationIndices { first: 0, last: 3 },
+            // AnimationTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
             Collider(ColliderType::Enemy),
         ));
     }
@@ -478,8 +479,7 @@ pub fn handle_gunners(
                 continue;
             }
             let angle = delta.y.atan2(delta.x);
-            gun_t.rotation =
-                Quat::from_euler(EulerRot::XYZ, 0., 0., angle - std::f32::consts::PI / 2.);
+            gun_t.rotation = Quat::from_euler(EulerRot::XYZ, 0., 0., angle - PI / 2.);
             if gun_state.last_shot + Duration::from_secs_f32(1. / gun.rate()) < time.elapsed() {
                 commands.spawn((
                     ProjectileBundle::new(
@@ -494,7 +494,7 @@ pub fn handle_gunners(
                         .with_rotation(
                             gun_t.rotation * Quat::from_euler(EulerRot::XYZ, 0., 0., -PI / 2.),
                         )
-                        .with_scale(Vec2::splat(2.0).extend(0.)),
+                        .with_scale(Vec2::splat(TILE_SIZE / SPRITE_SIZE / 2.).extend(0.)),
                     ),
                     Collider(ColliderType::Projectile),
                     AnimationIndices { first: 0, last: 2 },
@@ -528,7 +528,7 @@ pub fn handle_projectiles(
 
             projectile_t.translation -= projectile.velocity() * dir;
 
-            let enemy_scale = enemy_t.scale.truncate() * 16.0; // TODO fix relative scale of enemies
+            let enemy_scale = enemy_t.scale.truncate() * SPRITE_SIZE; // TODO fix relative scale of enemies
 
             let collision = collide(
                 projectile_t.translation,

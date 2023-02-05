@@ -13,6 +13,7 @@ use crate::*;
 pub struct Level {
     pub path: Vec<[f32; 2]>,
     pub decor: Vec<(String, [f32; 2], bool)>,
+    pub center_pos: [f32; 2],
 }
 
 #[derive(Resource, Debug)]
@@ -56,6 +57,10 @@ impl Cursor {
             },
             ..default()
         }
+    }
+
+    pub fn change_scale(&mut self, scale: Vec2) {
+        self.sprite_bundle.transform.scale = scale.extend(0.);
     }
 }
 
