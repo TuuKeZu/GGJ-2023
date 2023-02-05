@@ -460,6 +460,7 @@ pub fn handle_shop(
 pub fn handle_gunners(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
+    mut texture_atlases: ResMut<Assets<TextureAtlas>>,
     mut gun_q: Query<(&mut Transform, &Gun, &mut GunState), Without<Selected>>,
     enemies: Query<(&Transform, &Enemy), Without<Gun>>,
     time: Res<Time>,
@@ -481,17 +482,23 @@ pub fn handle_gunners(
                 Quat::from_euler(EulerRot::XYZ, 0., 0., angle - std::f32::consts::PI / 2.);
             if gun_state.last_shot + Duration::from_secs_f32(1. / gun.rate()) < time.elapsed() {
                 commands.spawn((
-                    ProjectileBundle::new(Projectile::new(ProjectileType::Knife, 1), &asset_server)
-                        .with_transform(
-                            Transform::from_translation(
-                                gun_t.translation.truncate().extend(PROJECTILE_LAYER),
-                            )
-                            .with_rotation(
-                                gun_t.rotation * Quat::from_euler(EulerRot::XYZ, 0., 0., -PI / 2.),
-                            )
-                            .with_scale(Vec2::splat(2.0).extend(0.)),
-                        ),
+                    ProjectileBundle::new(
+                        Projectile::new(ProjectileType::ChefsKnife),
+                        &asset_server,
+                        &mut texture_atlases,
+                    )
+                    .with_transform(
+                        Transform::from_translation(
+                            gun_t.translation.truncate().extend(PROJECTILE_LAYER),
+                        )
+                        .with_rotation(
+                            gun_t.rotation * Quat::from_euler(EulerRot::XYZ, 0., 0., -PI / 2.),
+                        )
+                        .with_scale(Vec2::splat(2.0).extend(0.)),
+                    ),
                     Collider(ColliderType::Projectile),
+                    AnimationIndices { first: 0, last: 2 },
+                    AnimationTimer(Timer::from_seconds(0.6, TimerMode::Repeating)),
                 ));
 
                 gun_state.last_shot = time.elapsed();
@@ -502,14 +509,10 @@ pub fn handle_gunners(
 
 pub fn handle_projectiles(
     mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut texture_atlases: ResMut<Assets<TextureAtlas>>,
     mut projectile_q: Query<(Entity, &mut Transform, &Collider, &mut Projectile)>,
-    mut enemies: Query<(&mut Enemy, Entity, &Transform, &Collider), Without<Projectile>>,
+    mut enemies: Query<(Entity, &mut Enemy, &Transform, &Collider), Without<Projectile>>,
 ) {
-    for (mut enemy, enemy_ent, enemy_t, _) in enemies.iter_mut() {
-        let mut rng = thread_rng();
-
+    for (enemy_ent, mut enemy, enemy_t, _) in enemies.iter_mut() {
         for (projectile_ent, mut projectile_t, _, mut projectile) in projectile_q.iter_mut() {
             if projectile_t.translation.x > MAP_SIZE as f32 * TILE_SIZE
                 || projectile_t.translation.y > MAP_SIZE as f32 * TILE_SIZE
@@ -532,41 +535,53 @@ pub fn handle_projectiles(
                 enemy_scale,
             );
 
-            if collision.is_some() {
+            let enemy_entid = commands.entity(enemy_ent).id();
+            if collision.is_some() && !projectile.hit_enemies.contains(&enemy_entid) {
                 projectile.health -= 1;
             }
             if projectile.health <= 0 {
-                commands.entity(projectile_ent).despawn();
-                if projectile.health <= 0 {
-                    commands.entity(projectile_ent).despawn();
-                }
-
                 enemy.health -= 1;
-                if enemy.health <= 0 {
-                    commands.entity(enemy_ent).despawn();
-                    if let Some((amount, kind)) = enemy.split() {
-                        for i in 1..=amount {
-                            let j = i as f32;
-                            commands.spawn((
-                                EnemyBundle::new(
-                                    Enemy::new(kind.clone(), enemy.idx),
-                                    &asset_server,
-                                    &mut texture_atlases,
+                projectile.hit_enemies.push(enemy_entid);
+            }
+
+            if projectile.health <= 0 {
+                commands.entity(projectile_ent).despawn();
+            }
+        }
+    }
+}
+
+pub fn handle_enemies(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut texture_atlases: ResMut<Assets<TextureAtlas>>,
+    mut enemies: Query<(Entity, &mut Enemy, &Transform)>,
+) {
+    let mut rng = thread_rng();
+
+    for (enemy_ent, enemy, enemy_t) in enemies.iter_mut() {
+        if enemy.health <= 0 {
+            commands.entity(enemy_ent).despawn();
+
+            if let Some((amount, kind)) = enemy.split() {
+                for i in 1..=amount {
+                    let j = i as f32;
+                    commands.spawn((
+                        EnemyBundle::new(
+                            Enemy::new(kind.clone(), enemy.idx),
+                            &asset_server,
+                            &mut texture_atlases,
+                        )
+                        .with_position(
+                            enemy_t.translation
+                                + Vec2::new(
+                                    rng.gen_range(0..TILE_SIZE as i32 / amount) as f32 * (j - 1.),
+                                    rng.gen_range(0..TILE_SIZE as i32 / amount) as f32 * (j - 1.),
                                 )
-                                .with_position(
-                                    enemy_t.translation
-                                        + Vec2::new(
-                                            rng.gen_range(0..TILE_SIZE as i32 / amount) as f32
-                                                * (j - 1.),
-                                            rng.gen_range(0..TILE_SIZE as i32 / amount) as f32
-                                                * (j - 1.),
-                                        )
-                                        .extend(0.),
-                                ),
-                                Collider(ColliderType::Enemy),
-                            ));
-                        }
-                    }
+                                .extend(0.),
+                        ),
+                        Collider(ColliderType::Enemy),
+                    ));
                 }
             }
         }

@@ -207,34 +207,43 @@ impl GunBundle {
     }
 }
 
-#[derive(Component, Debug, Clone, Copy)]
+#[derive(Component, Debug, Clone)]
 pub struct Projectile {
     pub ty: ProjectileType,
     pub health: i32,
+    pub hit_enemies: Vec<Entity>,
 }
 
 #[derive(Debug, Clone, Copy)]
 pub enum ProjectileType {
     Knife,
     Spoon,
+    ChefsKnife,
+}
+impl ProjectileType {
+    fn initial_health(&self) -> i32 {
+        match self {
+            ProjectileType::Knife => 1,
+            ProjectileType::Spoon => 2,
+            ProjectileType::ChefsKnife => 3,
+        }
+    }
 }
 
 impl Projectile {
-    pub fn new(ty: ProjectileType, health: i32) -> Self {
-        Self { ty, health }
+    pub fn new(ty: ProjectileType) -> Self {
+        Self {
+            ty,
+            health: ty.initial_health(),
+            hit_enemies: vec![],
+        }
     }
     pub fn scale(&self) -> Vec2 {
         match self.ty {
             ProjectileType::Knife => Vec2::splat(1. / SPRITE_SIZE),
             ProjectileType::Spoon => Vec2::splat(1. / SPRITE_SIZE),
+            ProjectileType::ChefsKnife => Vec2::splat(1. / SPRITE_SIZE),
         }
-    }
-
-    pub fn sprite(&self, asset_server: &Res<AssetServer>) -> Handle<Image> {
-        asset_server.load(match self.ty {
-            ProjectileType::Knife => "resources/knife.png",
-            ProjectileType::Spoon => "resources/spoon.png",
-        })
     }
 
     pub fn velocity(&self) -> f32 {
@@ -243,22 +252,40 @@ impl Projectile {
             * match self.ty {
                 ProjectileType::Knife => 8.0,
                 ProjectileType::Spoon => 6.0,
+                ProjectileType::ChefsKnife => 8.5,
             }
+    }
+
+    fn atlas(&self, asset_server: &AssetServer) -> TextureAtlas {
+        let texture_handle = asset_server.load(match self.ty {
+            ProjectileType::Knife => "resources/knife.png",
+            ProjectileType::Spoon => "resources/spoon.png",
+            ProjectileType::ChefsKnife => "resources/chef's knife.png",
+        });
+
+        TextureAtlas::from_grid(texture_handle, Vec2::new(32.0, 32.0), 3, 1, None, None)
     }
 }
 #[derive(Bundle)]
 pub struct ProjectileBundle {
-    pub sprite_bundle: SpriteBundle,
+    pub sprite_bundle: SpriteSheetBundle,
     pub projectile: Projectile,
 }
 
 impl ProjectileBundle {
-    pub fn new(projectile: Projectile, asset_server: &Res<AssetServer>) -> Self {
+    pub fn new(
+        projectile: Projectile,
+        asset_server: &Res<AssetServer>,
+        texture_atlases: &mut ResMut<Assets<TextureAtlas>>,
+    ) -> Self {
+        let atlas = projectile.atlas(asset_server);
+        let tah = texture_atlases.add(atlas); // FIXME adding the texture every time is probably wrong (branch atlas-refactoring)
+
         Self {
-            sprite_bundle: SpriteBundle {
+            sprite_bundle: SpriteSheetBundle {
                 transform: Transform::from_xyz(0., 0., PROJECTILE_LAYER)
                     .with_scale(Vec2::splat(1. / SPRITE_SIZE).extend(0.)),
-                texture: projectile.sprite(asset_server),
+                texture_atlas: tah,
                 ..default()
             },
             projectile,
@@ -267,11 +294,6 @@ impl ProjectileBundle {
 
     pub fn with_transform(mut self, transform: Transform) -> Self {
         self.sprite_bundle.transform = transform;
-        self
-    }
-
-    pub fn with_texture(mut self, texture: Texture) -> Self {
-        self.sprite_bundle.texture = texture;
         self
     }
 }
