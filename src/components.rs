@@ -4,7 +4,7 @@ use std::time::Duration;
 use bevy::reflect::TypeUuid;
 use bevy::{math::*, prelude::*};
 
-use crate::{Texture, CURSOR_COLOR, ENEMY_LAYER, SPRITE_SIZE, TILE_SIZE, TIME_STEP, WALL_COLOR};
+use crate::*;
 
 #[derive(serde::Deserialize, TypeUuid, Debug)]
 #[uuid = "413be529-bfeb-41b3-9db0-4b8b380a2c46"]
@@ -15,8 +15,16 @@ pub struct Level {
 #[derive(Resource, Debug)]
 pub struct LevelHandle(pub Handle<Level>);
 
-#[derive(Component)]
-pub struct Collider;
+#[derive(Component, Debug, PartialEq, PartialOrd)]
+pub struct Collider(pub ColliderType);
+
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum ColliderType {
+    Cursor,
+    Tile,
+    Turret,
+    Projectile,
+}
 
 #[derive(Bundle, Default)]
 pub struct Cursor {
@@ -28,7 +36,7 @@ impl Cursor {
     pub fn new() -> Self {
         Self {
             sprite_bundle: SpriteBundle {
-                transform: Transform::from_xyz(0., 0., 0.)
+                transform: Transform::from_xyz(0., 0., CURSOR_LAYER)
                     .with_rotation(Quat::from_euler(EulerRot::XYZ, 0., 0., 0.))
                     .with_scale(Vec3 {
                         x: TILE_SIZE,
@@ -91,12 +99,16 @@ impl TurretBundle {
         Self {
             sprite_bundle: SpriteBundle {
                 transform: Transform::from_xyz(0., 0., 0.)
-                    .with_scale(Vec2::splat(1. / SPRITE_SIZE).extend(turret.scale().x)),
+                    .with_scale(Vec2::splat(1. / SPRITE_SIZE).extend(0.)),
+                sprite: Sprite {
+                    color: WALL_COLOR,
+                    ..default()
+                },
                 texture: turret.sprite(asset_server),
                 ..default()
             },
             turret,
-            collider: Collider,
+            collider: Collider(ColliderType::Turret),
         }
     }
 
@@ -284,7 +296,7 @@ impl PathTile {
                 texture: asset_server.load("resources/path.png"),
                 ..default()
             },
-            collider: Collider,
+            collider: Collider(ColliderType::Tile),
         }
     }
 
@@ -380,10 +392,7 @@ pub struct PathNode {
 
 impl PathNode {
     pub fn new(position: Vec2) -> Self {
-        Self {
-            position,
-            ..default()
-        }
+        Self { position }
     }
 }
 
