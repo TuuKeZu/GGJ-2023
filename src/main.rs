@@ -59,6 +59,7 @@ fn main() {
                 .with_system(handle_cursor_visibility)
                 .with_system(handle_sell)
                 .with_system(handle_shop)
+                .with_system(handle_projectiles)
                 .with_system(animate_sprite)
                 .with_system(game_tick),
         )

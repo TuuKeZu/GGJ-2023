@@ -1,3 +1,5 @@
+use std::{f32::consts::PI, time::Duration};
+
 use bevy::{
     core_pipeline::bloom::BloomSettings,
     math::*,
@@ -37,9 +39,12 @@ pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let font = asset_server.load("fonts/ComicMono.ttf");
     commands.spawn(GUIBundle::new(font));
 
-    commands.spawn(GunBundle::new(Gun::Gun1, &asset_server).with_transform(
-        Transform::from_xyz(0., 0., 10.).with_scale(Vec3::splat(TILE_SIZE / SPRITE_SIZE)),
-    ));
+    commands.spawn(
+        GunBundle::new(Gun::Gun1, &asset_server).with_transform(
+            Transform::from_xyz(-10. * TILE_SIZE, 0., 10.)
+                .with_scale(Vec3::splat(TILE_SIZE / SPRITE_SIZE)),
+        ),
+    );
 
     // Textures
     // let texture_handle = asset_server.load("resources/potato.png");
@@ -429,10 +434,13 @@ pub fn update_scoreboard(menu: Res<Menu>, mut query: Query<&mut Text>) {
 }
 
 pub fn handle_gunners(
-    mut gun_q: Query<&mut Transform, (With<Gun>, Without<Selected>)>,
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut gun_q: Query<(&mut Transform, &Gun, &mut GunState), Without<Selected>>,
     enemies: Query<(&Transform, &Enemy), Without<Gun>>,
+    time: Res<Time>,
 ) {
-    for mut gun_t in gun_q.iter_mut() {
+    for (mut gun_t, gun, mut gun_state) in gun_q.iter_mut() {
         if let Some(nearest_enemy) = enemies.iter().min_by(|(enemy_t_a, _), (enemy_t_b, _)| {
             gun_t
                 .translation
@@ -440,11 +448,36 @@ pub fn handle_gunners(
                 .partial_cmp(&gun_t.translation.distance(enemy_t_b.translation))
                 .unwrap()
         }) {
-            info!("{:?}", nearest_enemy.0.translation);
+            // info!("{:?}", nearest_enemy.0.translation);
             let delta = nearest_enemy.0.translation - gun_t.translation;
+            if delta.length() > gun.range() {
+                // TODO scaling?
+                continue;
+            }
             let angle = delta.y.atan2(delta.x);
             gun_t.rotation =
-                Quat::from_euler(EulerRot::XYZ, 0., 0., angle - std::f32::consts::PI / 2.)
+                Quat::from_euler(EulerRot::XYZ, 0., 0., angle - std::f32::consts::PI / 2.);
+            if gun_state.last_shot + Duration::from_secs_f32(1. / gun.rate()) < time.elapsed() {
+                commands.spawn((
+                    ProjectileBundle::new(Projectile::Knife, &asset_server).with_transform(
+                        Transform::from_translation(gun_t.translation.truncate().extend(0.5))
+                            .with_rotation(
+                                gun_t.rotation * Quat::from_euler(EulerRot::XYZ, 0., 0., -PI / 2.),
+                            )
+                            .with_scale(Vec2::splat(2.0).extend(0.)),
+                    ),
+                    Collider,
+                ));
+
+                gun_state.last_shot = time.elapsed();
+            }
         }
+    }
+}
+
+pub fn handle_projectiles(mut projectile_q: Query<(&mut Transform, &Collider, &Projectile)>) {
+    for (mut projectile_t, _, projectile) in projectile_q.iter_mut() {
+        let dir = projectile_t.rotation * Vec3::X;
+        projectile_t.translation -= projectile.velocity() * dir;
     }
 }
