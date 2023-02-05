@@ -2,6 +2,7 @@ use std::collections::VecDeque;
 use std::default;
 use std::time::Duration;
 
+use bevy::ecs::system::Spawn;
 use bevy::reflect::TypeUuid;
 use bevy::window::{WindowId, WindowResizeConstraints};
 use bevy::{math::*, prelude::*};
@@ -459,7 +460,7 @@ impl Enemy {
     }
 }
 
-#[derive(Debug, Clone, serde::Deserialize)]
+#[derive(PartialEq, Debug, Clone, serde::Deserialize)]
 pub enum EnemyKind {
     Potato,
     Carrot,
@@ -525,7 +526,16 @@ impl RoundCounter {
 }
 
 #[derive(Debug, Resource)]
-pub struct RoundList(pub Vec<Round>);
+pub struct RoundList(pub Vec<Vec<(usize, EnemyKind)>>);
 
 #[derive(Debug, Resource)]
-pub struct Round(pub Vec<(usize, EnemyKind)>);
+pub struct Round(pub Vec<EnemyKind>);
+
+#[derive(Debug, Resource)]
+pub struct SpawnTimer(pub Timer);
+
+impl SpawnTimer {
+    pub fn default() -> Self {
+        Self(Timer::new(Duration::from_secs(10), TimerMode::Repeating))
+    }
+}

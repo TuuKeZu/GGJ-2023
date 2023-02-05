@@ -20,10 +20,11 @@ pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let level = LevelHandle(asset_server.load("map.json"));
     commands.insert_resource(level);
 
-    let enemylist = RoundList(vec![Round(vec![
-        (5, EnemyKind::Potato),
-        (3, EnemyKind::Carrot),
-    ])]);
+    let enemylist = RoundList(vec![
+        vec![(5, EnemyKind::Potato), (3, EnemyKind::Carrot)],
+        vec![(8, EnemyKind::Potato), (5, EnemyKind::Carrot)],
+        vec![(10, EnemyKind::Carrot), (1, EnemyKind::Pepper)],
+    ]);
     commands.insert_resource(enemylist);
 
     // Camera
@@ -210,7 +211,9 @@ pub fn spawn_level(
             }
         }
 
+        commands.insert_resource(SpawnTimer::default());
         commands.insert_resource(RoundCounter::default());
+        commands.insert_resource(Round(vec![]));
 
         state.set(AppState::Level).unwrap();
     }
@@ -391,27 +394,49 @@ pub fn game_tick(
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
     mut round_counter: ResMut<RoundCounter>,
     roundlist: Res<RoundList>,
+    mut round: ResMut<Round>,
+    time: Res<Time>,
+    mut spawn_timer: ResMut<SpawnTimer>,
 ) {
-    if enemy_q.iter().count() < 1 {
-        round_counter.next();
-
-        let enemylist = (*roundlist).0.get(round_counter.0 - 1);
-
-        if enemylist.is_none() {
-            panic!("No more levels");
-        }
-
-        for (amount, kind) in &enemylist.unwrap().0 {
-            for _ in 0..*amount {
+    spawn_timer.0.tick(time.delta());
+    if spawn_timer.0.finished() {
+        if let Some(kind) = round.0.pop() {
+            if kind == EnemyKind::Pepper {
+                let animation_indices = AnimationIndices { first: 0, last: 3 };
                 commands.spawn((
                     EnemyBundle::new(
-                        Enemy::new(kind.clone(), 0),
+                        Enemy::new(EnemyKind::Pepper, 0),
                         &asset_server,
                         &mut texture_atlases,
                     )
                     .with_position(path.start_position.extend(0.)),
+                    animation_indices,
+                    AnimationTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
                     Collider(ColliderType::Enemy),
                 ));
+            }
+            commands.spawn((
+                EnemyBundle::new(Enemy::new(kind, 0), &asset_server, &mut texture_atlases)
+                    .with_position(path.start_position.extend(0.)),
+                Collider(ColliderType::Enemy),
+            ));
+        }
+    }
+
+    if enemy_q.iter().count() < 1 && round.0.is_empty() {
+        round_counter.next();
+
+        let mut enemies: Vec<EnemyKind> = vec![];
+        if let Some(enemylist) = (*roundlist).0.get(round_counter.0 - 1) {
+            for (amount, kind) in enemylist {
+                for _ in 0..*amount {
+                    enemies.push(kind.clone());
+                }
+            }
+            commands.insert_resource(Round(enemies));
+        } else {
+            for _ in 0..round_counter.0 {
+                enemies.push(EnemyKind::Pepper);
             }
         }
 
