@@ -114,6 +114,66 @@ impl TurretBundle {
     }
 }
 
+#[derive(Component, Debug, Clone, Copy)]
+pub enum Gun {
+    Gun1,
+    Gun2,
+}
+
+#[derive(Component, Debug, Clone, Default)]
+pub struct GunState {
+    projectiles: Vec<Vec2>,
+}
+
+impl Gun {
+    pub fn scale(&self) -> Vec2 {
+        match self {
+            Gun::Gun1 => Vec2::splat(1. / SPRITE_SIZE),
+            Gun::Gun2 => Vec2::splat(2. / SPRITE_SIZE),
+        }
+    }
+
+    pub fn sprite(&self, asset_server: &Res<AssetServer>) -> Handle<Image> {
+        asset_server.load(match self {
+            Gun::Gun1 => "resources/gun-2.png",
+            Gun::Gun2 => "resources/gun-1-alt.png",
+        })
+    }
+}
+#[derive(Bundle)]
+pub struct GunBundle {
+    pub sprite_bundle: SpriteBundle,
+    pub gun: Gun,
+}
+
+impl GunBundle {
+    pub fn new(gun: Gun, asset_server: &Res<AssetServer>) -> Self {
+        Self {
+            sprite_bundle: SpriteBundle {
+                transform: Transform::from_xyz(0., 0., 10.)
+                    .with_scale(Vec2::splat(1. / SPRITE_SIZE).extend(0.0)), // TODO z layer
+                sprite: Sprite {
+                    color: WALL_COLOR,
+                    ..default()
+                },
+                texture: gun.sprite(asset_server),
+                ..default()
+            },
+            gun,
+        }
+    }
+
+    pub fn with_transform(mut self, transform: Transform) -> Self {
+        self.sprite_bundle.transform = transform;
+        self
+    }
+
+    pub fn with_texture(mut self, texture: Texture) -> Self {
+        self.sprite_bundle.texture = texture;
+        self
+    }
+}
+
 #[derive(Bundle)]
 pub struct Tile {
     pub sprite_bundle: SpriteBundle,

@@ -54,12 +54,13 @@ fn main() {
                 .with_run_criteria(FixedTimestep::step(TIME_STEP as f64))
                 .with_system(move_cursor)
                 .with_system(handle_collisions)
+                .with_system(handle_gunners)
                 .with_system(handle_place.after(handle_collisions))
                 .with_system(handle_cursor_visibility)
                 .with_system(handle_sell)
                 .with_system(handle_shop)
                 .with_system(animate_sprite)
-                .with_system(game_tick.after(animate_sprite)),
+                .with_system(game_tick),
         )
         .add_system(update_scoreboard)
         .add_system(bevy::window::close_on_esc)

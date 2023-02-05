@@ -37,6 +37,10 @@ pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let font = asset_server.load("fonts/ComicMono.ttf");
     commands.spawn(GUIBundle::new(font));
 
+    commands.spawn(GunBundle::new(Gun::Gun1, &asset_server).with_transform(
+        Transform::from_xyz(0., 0., 10.).with_scale(Vec3::splat(TILE_SIZE / SPRITE_SIZE)),
+    ));
+
     // Textures
     // let texture_handle = asset_server.load("resources/potato.png");
     // let texture_atlas =
@@ -342,7 +346,7 @@ pub fn game_tick(
     mut enemy_q: Query<(&mut Transform, &mut Enemy)>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
 ) {
-    if enemy_q.iter().count() < 1000 {
+    if enemy_q.iter().count() < 10 {
         commands.spawn(
             EnemyBundle::new(
                 Enemy {
@@ -426,4 +430,25 @@ pub fn handle_shop(
 pub fn update_scoreboard(menu: Res<Menu>, mut query: Query<&mut Text>) {
     let mut text = query.single_mut();
     text.sections[1].value = format!("{:?}", menu.current_item);
+}
+
+pub fn handle_gunners(
+    mut gun_q: Query<&mut Transform, (With<Gun>, Without<Selected>)>,
+    enemies: Query<(&Transform, &Enemy), Without<Gun>>,
+) {
+    for mut gun_t in gun_q.iter_mut() {
+        if let Some(nearest_enemy) = enemies.iter().min_by(|(enemy_t_a, _), (enemy_t_b, _)| {
+            gun_t
+                .translation
+                .distance(enemy_t_a.translation)
+                .partial_cmp(&gun_t.translation.distance(enemy_t_b.translation))
+                .unwrap()
+        }) {
+            info!("{:?}", nearest_enemy.0.translation);
+            let delta = nearest_enemy.0.translation - gun_t.translation;
+            let angle = delta.y.atan2(delta.x);
+            gun_t.rotation =
+                Quat::from_euler(EulerRot::XYZ, 0., 0., angle - std::f32::consts::PI / 2.)
+        }
+    }
 }
