@@ -164,6 +164,17 @@ pub fn spawn_level(
             commands.spawn(PathTile::new(&asset_server).with_position(pos.extend(PATH_LAYER)));
         }
 
+        for (image_path, pos, blocks) in level.decor.into_iter() {
+            let decor_asset = asset_server.load::<Image, _>(image_path);
+            let decor_pos = vec2(pos[0], pos[1]) * TILE_SIZE + Vec2::splat(TILE_SIZE / 2.);
+            let tile = Tile::new_decor(decor_asset).with_position(decor_pos.extend(PATH_LAYER));
+            if blocks {
+                commands.spawn((tile, Collider));
+            } else {
+                commands.spawn(tile);
+            }
+        }
+
         state.set(AppState::Level).unwrap();
     }
 }
@@ -430,9 +441,29 @@ pub fn handle_shop(
     }
 }
 
-pub fn update_scoreboard(menu: Res<Menu>, mut query: Query<&mut Text>) {
+pub fn update_scoreboard(
+    menu: Res<Menu>,
+    mut query: Query<&mut Text>,
+    windows: Res<Windows>,
+    camera_q: Query<&Transform, With<Camera>>,
+) {
+    let window = windows.get_primary().unwrap();
+    let window_size = Vec2::new(window.width(), window.height());
+    let camera_transform = camera_q.get_single().unwrap();
     let mut text = query.single_mut();
-    text.sections[1].value = format!("{:?}", menu.current_item);
+
+    if let Some(cursor_position) = window.cursor_position() {
+        let mut cursor_grid =
+            cursor_position - (window_size / 2.) + camera_transform.translation.truncate();
+
+        cursor_grid = (cursor_grid / TILE_SIZE).floor();
+        text.sections[1].value = format!(
+            "{:?} {:>3} {:>3}",
+            menu.current_item, cursor_grid.x, cursor_grid.y
+        );
+    } else {
+        text.sections[1].value = format!("{:?} --- ---", menu.current_item);
+    }
 }
 
 pub fn handle_gunners(
@@ -509,7 +540,7 @@ pub fn handle_projectiles(
                 commands.entity(enemy_ent).despawn();
                 projectile.health -= 1;
             }
-            if projectile.health < 0 {
+            if projectile.health <= 0 {
                 commands.entity(projectile_ent).despawn();
             }
         }

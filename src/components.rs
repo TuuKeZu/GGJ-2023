@@ -15,6 +15,7 @@ use crate::{
 #[uuid = "413be529-bfeb-41b3-9db0-4b8b380a2c46"]
 pub struct Level {
     pub path: Vec<[f32; 2]>,
+    pub decor: Vec<(String, [f32; 2], bool)>,
 }
 
 #[derive(Resource, Debug)]
@@ -276,6 +277,16 @@ impl Tile {
                         "resources/dirt.png"
                     })
                 },
+                ..default()
+            },
+        }
+    }
+
+    pub fn new_decor(texture: Handle<Image>) -> Self {
+        Self {
+            sprite_bundle: SpriteBundle {
+                transform: Transform::from_scale(Vec2::splat(TILE_SIZE / SPRITE_SIZE).extend(0.)),
+                texture,
                 ..default()
             },
         }
