@@ -11,4 +11,5 @@ resolver = "2" # Important! wgpu/Bevy needs this!
 [dependencies]
 bevy = {version="0.9.1", features=["dynamic"]}
 bevy_common_assets = {version="0.4.0", features=["json"]}
+rand = "0.8.5"
 serde = "1.0.152"

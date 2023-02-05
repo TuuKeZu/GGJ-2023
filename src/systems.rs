@@ -116,8 +116,8 @@ pub fn spawn_level(
     mut query: Query<&mut Transform, With<Camera>>,
     mut path: ResMut<Path>,
 ) {
-    let mut camera_transform = query.get_single_mut().unwrap();
     if let Some(level) = levels.remove(level.0.id()) {
+        let mut camera_transform = query.get_single_mut().unwrap();
         let positions: Vec<Vec2> = level
             .path
             .iter()
@@ -161,7 +161,7 @@ pub fn spawn_level(
 
         for pos in tiles {
             path.positions.push_back(PathNode::new(*pos));
-            commands.spawn(PathTile::new(&asset_server).with_position(pos.extend(0.)));
+            commands.spawn(PathTile::new(&asset_server).with_position(pos.extend(PATH_LAYER)));
         }
 
         state.set(AppState::Level).unwrap();

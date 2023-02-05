@@ -29,11 +29,12 @@ pub const TILE_COLOR: Color = Color::rgb(0.2, 0.2, 0.2);
 pub const START_COLOR: Color = Color::rgb(0., 1., 0.);
 pub const END_COLOR: Color = Color::rgb(1., 0., 0.);
 
+pub const MAP_SIZE: i32 = 16; // Map width and height are 2 * MAP_SIZE
 pub const TILE_SIZE: f32 = 64.;
 pub const SPRITE_SIZE: f32 = 16.; // DO NOT TOUCH!!!!!
 
+pub const PATH_LAYER: f32 = 2.;
 pub const ENEMY_LAYER: f32 = 5.;
-pub const MAP_SIZE: i32 = 16; // Map width and height are 2 * MAP_SIZE
 
 pub type Texture = bevy::prelude::Handle<bevy::prelude::Image>;
 

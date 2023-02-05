@@ -4,7 +4,11 @@ use std::time::Duration;
 use bevy::reflect::TypeUuid;
 use bevy::{math::*, prelude::*};
 
-use crate::{Texture, CURSOR_COLOR, ENEMY_LAYER, SPRITE_SIZE, TILE_SIZE, TIME_STEP, WALL_COLOR};
+use rand::{thread_rng, Rng};
+
+use crate::{
+    Texture, CURSOR_COLOR, ENEMY_LAYER, PATH_LAYER, SPRITE_SIZE, TILE_SIZE, TIME_STEP, WALL_COLOR,
+};
 
 #[derive(serde::Deserialize, TypeUuid, Debug)]
 #[uuid = "413be529-bfeb-41b3-9db0-4b8b380a2c46"]
@@ -278,10 +282,17 @@ pub struct PathTile {
 
 impl PathTile {
     pub fn new(asset_server: &Res<AssetServer>) -> Self {
+        let mut rng = thread_rng();
         Self {
             sprite_bundle: SpriteBundle {
-                transform: Transform::from_scale(Vec2::splat(TILE_SIZE / SPRITE_SIZE).extend(0.)),
-                texture: asset_server.load("resources/path.png"),
+                transform: Transform::from_scale(
+                    Vec2::splat(TILE_SIZE / SPRITE_SIZE).extend(PATH_LAYER),
+                ),
+                texture: asset_server.load(if rng.gen_range(0..10) == 0 {
+                    "resources/overgrown_path.png"
+                } else {
+                    "resources/path.png"
+                }),
                 ..default()
             },
             collider: Collider,
