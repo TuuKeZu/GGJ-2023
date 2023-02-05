@@ -433,12 +433,12 @@ pub fn game_tick(
                     enemies.push(kind.clone());
                 }
             }
-            commands.insert_resource(Round(enemies));
         } else {
             for _ in 0..round_counter.0 {
                 enemies.push(EnemyKind::Pepper);
             }
         }
+        commands.insert_resource(Round(enemies));
 
         // commands.spawn((
         //     EnemyBundle::new(
