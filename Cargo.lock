@@ -193,15 +193,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "bevy-testing"
-version = "0.1.0"
-dependencies = [
- "bevy",
- "bevy_common_assets",
- "serde",
-]
-
-[[package]]
 name = "bevy_animation"
 version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2482,6 +2473,15 @@ checksum = "300a51053b1cb55c80b7a9fde4120726ddf25ca241a1cbb926626f62fb136bff"
 dependencies = [
  "base64",
  "bitflags",
+ "serde",
+]
+
+[[package]]
+name = "rootsTD"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "bevy_common_assets",
  "serde",
 ]
 
