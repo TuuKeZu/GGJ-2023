@@ -209,6 +209,7 @@ pub struct Projectile {
 #[derive(Debug, Clone, Copy)]
 pub enum ProjectileType {
     Knife,
+    Spoon,
 }
 
 impl Projectile {
@@ -218,12 +219,14 @@ impl Projectile {
     pub fn scale(&self) -> Vec2 {
         match self.ty {
             ProjectileType::Knife => Vec2::splat(1. / SPRITE_SIZE),
+            ProjectileType::Spoon => Vec2::splat(1. / SPRITE_SIZE),
         }
     }
 
     pub fn sprite(&self, asset_server: &Res<AssetServer>) -> Handle<Image> {
         asset_server.load(match self.ty {
             ProjectileType::Knife => "resources/knife.png",
+            ProjectileType::Spoon => "resources/spoon.png",
         })
     }
 
@@ -232,6 +235,7 @@ impl Projectile {
             * TILE_SIZE
             * match self.ty {
                 ProjectileType::Knife => 8.0,
+                ProjectileType::Spoon => 6.0,
             }
     }
 }
