@@ -253,10 +253,15 @@ pub struct Tile {
 
 impl Tile {
     pub fn new(asset_server: &Res<AssetServer>) -> Self {
+        let mut rng = thread_rng();
         Self {
             sprite_bundle: SpriteBundle {
                 transform: Transform::from_scale(Vec2::splat(TILE_SIZE / SPRITE_SIZE).extend(0.)),
-                texture: asset_server.load("resources/dirt.png"),
+                texture: asset_server.load(if rng.gen_range(0..10) == 0 {
+                    "resources/grass.png"
+                } else {
+                    "resources/dirt.png"
+                }),
                 ..default()
             },
         }
