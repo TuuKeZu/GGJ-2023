@@ -152,8 +152,8 @@ pub fn spawn_level(
         for x in -MAP_SIZE..MAP_SIZE {
             for y in -MAP_SIZE..MAP_SIZE {
                 commands.spawn(Tile::new(&asset_server).with_position(Vec3 {
-                    x: x as f32 * TILE_SIZE,
-                    y: y as f32 * TILE_SIZE,
+                    x: x as f32 * TILE_SIZE - TILE_SIZE / 2.,
+                    y: y as f32 * TILE_SIZE - TILE_SIZE / 2.,
                     z: 0.,
                 }));
             }
