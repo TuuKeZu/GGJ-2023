@@ -8,6 +8,11 @@ edition = "2021"
 [workspace]
 resolver = "2" # Important! wgpu/Bevy needs this!
 
+[profile.release]
+lto = "thin"
+
+
+
 [dependencies]
 bevy = {version="0.9.1", features=["dynamic"]}
 bevy_common_assets = {version="0.4.0", features=["json"]}

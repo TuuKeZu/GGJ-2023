@@ -2,6 +2,7 @@ use std::collections::VecDeque;
 use std::time::Duration;
 
 use bevy::reflect::TypeUuid;
+use bevy::window::{WindowId, WindowResizeConstraints};
 use bevy::{math::*, prelude::*};
 use rand::{thread_rng, Rng};
 

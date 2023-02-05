@@ -1,6 +1,9 @@
 use std::f32::consts::PI;
 
-use bevy::{diagnostic::FrameTimeDiagnosticsPlugin, math::*, prelude::*, time::FixedTimestep};
+use bevy::{
+    diagnostic::FrameTimeDiagnosticsPlugin, math::*, prelude::*, time::FixedTimestep,
+    window::WindowResizeConstraints,
+};
 
 use bevy_common_assets::json::JsonAssetPlugin;
 
@@ -12,6 +15,8 @@ pub mod ui;
 use components::*;
 use systems::*;
 use ui::*;
+
+const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 // Defines the amount of time that should elapse between each physics step.
 pub const TIME_STEP: f32 = 1.0 / 360.;
@@ -47,9 +52,34 @@ pub const MAX_DEFLECTION_ANGLE: f32 = 10. * PI / 180.;
 
 pub type Texture = bevy::prelude::Handle<bevy::prelude::Image>;
 
+pub fn window_primary() -> WindowDescriptor {
+    WindowDescriptor {
+        width: 1280.0,
+        height: 720.0,
+        resizable: true,
+        title: format!("rootsTD v{VERSION}"),
+        present_mode: bevy::window::PresentMode::AutoNoVsync,
+        resize_constraints: WindowResizeConstraints {
+            min_width: 400.0,
+            min_height: 300.0,
+            max_width: 1920.0,
+            max_height: 1080.0,
+        },
+
+        ..default()
+    }
+}
+
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
+        .add_plugins(
+            DefaultPlugins
+                .set(ImagePlugin::default_nearest())
+                .set(WindowPlugin {
+                    window: window_primary(),
+                    ..default()
+                }),
+        )
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .add_plugin(JsonAssetPlugin::<Level>::new(&["json"]))
         .insert_resource(ClearColor(BACKGROUND_COLOR))
@@ -76,6 +106,7 @@ fn main() {
                 .with_system(game_tick),
         )
         .add_system(update_scoreboard)
+        .add_system(bevy::window::close_on_esc)
         .add_system(update_fps)
         .run();
 }
