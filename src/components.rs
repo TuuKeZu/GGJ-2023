@@ -3,6 +3,7 @@ use std::time::Duration;
 
 use bevy::reflect::TypeUuid;
 use bevy::{math::*, prelude::*};
+use rand::{thread_rng, Rng};
 
 use crate::*;
 
@@ -26,6 +27,7 @@ pub enum ColliderType {
     Turret,
     Projectile,
     Decor,
+    Enemy,
 }
 
 #[derive(Bundle, Default)]

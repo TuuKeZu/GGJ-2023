@@ -149,8 +149,8 @@ pub fn spawn_level(
 
         // Move camera to middle of the map based on naive assumptions
         camera_transform.translation += (*end - *start).extend(0.) / 2.;
+        let mut rng = thread_rng();
 
-        /*
         for x in -MAP_SIZE..MAP_SIZE {
             for y in -MAP_SIZE..MAP_SIZE {
                 commands.spawn(Tile::new(&asset_server).with_position(Vec3 {
@@ -183,7 +183,7 @@ pub fn spawn_level(
                 }
             }
         }
-        */
+
         for pos in tiles {
             path.positions.push_back(PathNode::new(*pos));
             commands.spawn(PathTile::new(&asset_server).with_position(pos.extend(PATH_LAYER)));
@@ -382,7 +382,7 @@ pub fn game_tick(
                 &mut texture_atlases,
             )
             .with_position(path.start_position.extend(ENEMY_LAYER)),
-            Collider,
+            Collider(ColliderType::Enemy),
         ));
 
         let animation_indices = AnimationIndices { first: 0, last: 3 };
@@ -398,7 +398,7 @@ pub fn game_tick(
             .with_position(path.start_position.extend(0.)),
             animation_indices,
             AnimationTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
-            Collider,
+            Collider(ColliderType::Enemy),
         ));
     }
 
