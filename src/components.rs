@@ -189,28 +189,37 @@ impl GunBundle {
 }
 
 #[derive(Component, Debug, Clone, Copy)]
-pub enum Projectile {
+pub struct Projectile {
+    pub ty: ProjectileType,
+    pub health: i32,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum ProjectileType {
     Knife,
 }
 
 impl Projectile {
+    pub fn new(ty: ProjectileType, health: i32) -> Self {
+        Self { ty, health }
+    }
     pub fn scale(&self) -> Vec2 {
-        match self {
-            Projectile::Knife => Vec2::splat(1. / SPRITE_SIZE),
+        match self.ty {
+            ProjectileType::Knife => Vec2::splat(1. / SPRITE_SIZE),
         }
     }
 
     pub fn sprite(&self, asset_server: &Res<AssetServer>) -> Handle<Image> {
-        asset_server.load(match self {
-            Projectile::Knife => "resources/knife.png",
+        asset_server.load(match self.ty {
+            ProjectileType::Knife => "resources/knife.png",
         })
     }
 
     pub fn velocity(&self) -> f32 {
         TIME_STEP
             * TILE_SIZE
-            * match self {
-                Self::Knife => 3.5,
+            * match self.ty {
+                ProjectileType::Knife => 5.0,
             }
     }
 }

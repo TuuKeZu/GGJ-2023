@@ -41,7 +41,7 @@ pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     commands.spawn(
         GunBundle::new(Gun::Gun1, &asset_server).with_transform(
-            Transform::from_xyz(-10. * TILE_SIZE, 0., 10.)
+            Transform::from_xyz(-2.5 * TILE_SIZE, -1.5 * TILE_SIZE, 10.)
                 .with_scale(Vec3::splat(TILE_SIZE / SPRITE_SIZE)),
         ),
     );
@@ -348,7 +348,7 @@ pub fn game_tick(
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
 ) {
     if enemy_q.iter().count() < 1 {
-        commands.spawn(
+        commands.spawn((
             EnemyBundle::new(
                 Enemy {
                     kind: EnemyKind::Carrot,
@@ -358,7 +358,8 @@ pub fn game_tick(
                 &mut texture_atlases,
             )
             .with_position(path.start_position.extend(ENEMY_LAYER)),
-        );
+            Collider,
+        ));
 
         let animation_indices = AnimationIndices { first: 0, last: 3 };
         commands.spawn((
@@ -373,6 +374,7 @@ pub fn game_tick(
             .with_position(path.start_position.extend(0.)),
             animation_indices,
             AnimationTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
+            Collider,
         ));
     }
 
@@ -459,13 +461,15 @@ pub fn handle_gunners(
                 Quat::from_euler(EulerRot::XYZ, 0., 0., angle - std::f32::consts::PI / 2.);
             if gun_state.last_shot + Duration::from_secs_f32(1. / gun.rate()) < time.elapsed() {
                 commands.spawn((
-                    ProjectileBundle::new(Projectile::Knife, &asset_server).with_transform(
-                        Transform::from_translation(gun_t.translation.truncate().extend(0.5))
-                            .with_rotation(
-                                gun_t.rotation * Quat::from_euler(EulerRot::XYZ, 0., 0., -PI / 2.),
-                            )
-                            .with_scale(Vec2::splat(2.0).extend(0.)),
-                    ),
+                    ProjectileBundle::new(Projectile::new(ProjectileType::Knife, 1), &asset_server)
+                        .with_transform(
+                            Transform::from_translation(gun_t.translation.truncate().extend(0.5))
+                                .with_rotation(
+                                    gun_t.rotation
+                                        * Quat::from_euler(EulerRot::XYZ, 0., 0., -PI / 2.),
+                                )
+                                .with_scale(Vec2::splat(2.0).extend(0.)),
+                        ),
                     Collider,
                 ));
 
@@ -475,9 +479,40 @@ pub fn handle_gunners(
     }
 }
 
-pub fn handle_projectiles(mut projectile_q: Query<(&mut Transform, &Collider, &Projectile)>) {
-    for (mut projectile_t, _, projectile) in projectile_q.iter_mut() {
+pub fn handle_projectiles(
+    mut commands: Commands,
+    mut projectile_q: Query<(Entity, &mut Transform, &Collider, &mut Projectile)>,
+    enemies: Query<(Entity, &Transform, &Collider), (With<Enemy>, Without<Projectile>)>,
+) {
+    for (projectile_ent, mut projectile_t, _, mut projectile) in projectile_q.iter_mut() {
+        if projectile_t.translation.x > MAP_SIZE as f32 * TILE_SIZE
+            || projectile_t.translation.y > MAP_SIZE as f32 * TILE_SIZE
+            || projectile_t.translation.x < -MAP_SIZE as f32 * TILE_SIZE
+            || projectile_t.translation.y < -MAP_SIZE as f32 * TILE_SIZE
+        {
+            commands.entity(projectile_ent).despawn();
+        }
         let dir = projectile_t.rotation * Vec3::X;
         projectile_t.translation -= projectile.velocity() * dir;
+
+        for (enemy_ent, enemy_t, _) in enemies.iter() {
+            let enemy_scale = enemy_t.scale.truncate() * 16.0; // TODO fix relative scale of enemies
+
+            info!("{:?} {:?}", enemy_scale, enemy_t.translation);
+            let collision = collide(
+                projectile_t.translation,
+                Vec2::ZERO,
+                enemy_t.translation,
+                enemy_scale,
+            );
+
+            if collision.is_some() {
+                commands.entity(enemy_ent).despawn();
+                projectile.health -= 1;
+            }
+            if projectile.health < 0 {
+                commands.entity(projectile_ent).despawn();
+            }
+        }
     }
 }
