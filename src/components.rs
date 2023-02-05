@@ -174,13 +174,42 @@ impl GunBundle {
     }
 }
 
+// Background tile
 #[derive(Bundle)]
 pub struct Tile {
+    pub sprite_bundle: SpriteBundle,
+}
+
+impl Tile {
+    pub fn new(asset_server: &Res<AssetServer>) -> Self {
+        Self {
+            sprite_bundle: SpriteBundle {
+                transform: Transform::from_scale(Vec2::splat(TILE_SIZE / SPRITE_SIZE).extend(0.)),
+                texture: asset_server.load("resources/dirt.png"),
+                ..default()
+            },
+        }
+    }
+
+    pub fn with_position(mut self, translation: Vec3) -> Self {
+        self.sprite_bundle.transform.translation = translation;
+        self
+    }
+
+    pub fn with_texture(mut self, texture: Texture) -> Self {
+        self.sprite_bundle.texture = texture;
+        self
+    }
+}
+
+// Root path
+#[derive(Bundle)]
+pub struct PathTile {
     pub sprite_bundle: SpriteBundle,
     pub collider: Collider,
 }
 
-impl Tile {
+impl PathTile {
     pub fn new(asset_server: &Res<AssetServer>) -> Self {
         Self {
             sprite_bundle: SpriteBundle {
@@ -275,15 +304,15 @@ pub enum EnemyKind {
 pub struct Path {
     pub start_position: Vec2,
     pub end_position: Vec2,
-    pub positions: VecDeque<PathTile>,
+    pub positions: VecDeque<PathNode>,
 }
 
 #[derive(Default, Debug)]
-pub struct PathTile {
+pub struct PathNode {
     pub position: Vec2,
 }
 
-impl PathTile {
+impl PathNode {
     pub fn new(position: Vec2) -> Self {
         Self {
             position,

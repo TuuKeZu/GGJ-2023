@@ -123,22 +123,22 @@ pub fn spawn_level(
 
         let start = tiles.next().unwrap();
         path.start_position = *start;
-        path.positions.push_back(PathTile::new(*start));
+        path.positions.push_back(PathNode::new(*start));
 
         commands.spawn(
             Tile::new(&asset_server)
                 .with_texture(asset_server.load("resources/hole.png"))
-                .with_position(start.extend(0.)),
+                .with_position(start.extend(1.)),
         );
 
         let end = tiles.next_back().unwrap();
         path.end_position = *end;
-        path.positions.push_front(PathTile::new(*end));
+        path.positions.push_front(PathNode::new(*end));
 
         commands.spawn(
-            Tile::new(&asset_server)
+            PathTile::new(&asset_server)
                 .with_texture(asset_server.load("resources/hole.png"))
-                .with_position(end.extend(0.)),
+                .with_position(end.extend(1.)),
         );
 
         // Move camera to middle of the map based on naive assumptions
@@ -146,21 +146,17 @@ pub fn spawn_level(
 
         for x in -MAP_SIZE..MAP_SIZE {
             for y in -MAP_SIZE..MAP_SIZE {
-                commands.spawn(
-                    Tile::new(&asset_server)
-                        .with_position(Vec3 {
-                            x: x as f32 * TILE_SIZE,
-                            y: y as f32 * TILE_SIZE,
-                            z: 0.,
-                        })
-                        .with_texture(asset_server.load("resources/dirt.png")),
-                );
+                commands.spawn(Tile::new(&asset_server).with_position(Vec3 {
+                    x: x as f32 * TILE_SIZE,
+                    y: y as f32 * TILE_SIZE,
+                    z: 0.,
+                }));
             }
         }
 
         for pos in tiles {
-            path.positions.push_back(PathTile::new(*pos));
-            commands.spawn(Tile::new(&asset_server).with_position(pos.extend(0.)));
+            path.positions.push_back(PathNode::new(*pos));
+            commands.spawn(PathTile::new(&asset_server).with_position(pos.extend(0.)));
         }
 
         state.set(AppState::Level).unwrap();
@@ -346,7 +342,7 @@ pub fn game_tick(
     mut enemy_q: Query<(&mut Transform, &mut Enemy)>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
 ) {
-    if enemy_q.iter().count() < 10 {
+    if enemy_q.iter().count() < 1 {
         commands.spawn(
             EnemyBundle::new(
                 Enemy {
