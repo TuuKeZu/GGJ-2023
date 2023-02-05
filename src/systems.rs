@@ -551,9 +551,6 @@ pub fn handle_projectiles(
 
             if collision.is_some() {
                 projectile.health -= 1;
-            }
-            if projectile.health <= 0 {
-                commands.entity(projectile_ent).despawn();
                 if projectile.health <= 0 {
                     commands.entity(projectile_ent).despawn();
                 }
