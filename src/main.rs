@@ -102,6 +102,7 @@ fn main() {
                 .with_system(handle_sell)
                 .with_system(handle_shop)
                 .with_system(handle_projectiles)
+                .with_system(handle_projectile_collisions.after(handle_projectiles))
                 .with_system(handle_enemies)
                 .with_system(animate_sprite)
                 .with_system(game_tick),

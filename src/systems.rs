@@ -568,25 +568,36 @@ pub fn handle_gunners(
 
 pub fn handle_projectiles(
     mut commands: Commands,
-    mut projectile_q: Query<(Entity, &mut Transform, &Collider, &mut Projectile)>,
-    mut enemies: Query<(Entity, &mut Enemy, &Transform, &Collider), Without<Projectile>>,
+    mut projectile_q: Query<(Entity, &mut Transform, &Projectile), With<Collider>>,
+) {
+    for (projectile_ent, mut projectile_t, projectile) in projectile_q.iter_mut() {
+        if projectile_t.translation.x > MAP_SIZE as f32 * TILE_SIZE
+            || projectile_t.translation.y > MAP_SIZE as f32 * TILE_SIZE
+            || projectile_t.translation.x < -MAP_SIZE as f32 * TILE_SIZE
+            || projectile_t.translation.y < -MAP_SIZE as f32 * TILE_SIZE
+        {
+            commands.entity(projectile_ent).despawn();
+        }
+
+        let dir = projectile_t.rotation * Vec3::X;
+
+        projectile_t.translation -= projectile.velocity() * dir;
+
+        if projectile.health <= 0 {
+            commands.entity(projectile_ent).despawn();
+        }
+    }
+}
+
+pub fn handle_projectile_collisions(
+    mut commands: Commands,
+    mut projectile_q: Query<(&mut Transform, &mut Projectile), With<Collider>>,
+    mut enemies: Query<(Entity, &mut Enemy, &Transform), (Without<Projectile>, With<Collider>)>,
 ) {
     let mut rng = thread_rng();
 
-    for (enemy_ent, mut enemy, enemy_t, _) in enemies.iter_mut() {
-        for (projectile_ent, mut projectile_t, _, mut projectile) in projectile_q.iter_mut() {
-            if projectile_t.translation.x > MAP_SIZE as f32 * TILE_SIZE
-                || projectile_t.translation.y > MAP_SIZE as f32 * TILE_SIZE
-                || projectile_t.translation.x < -MAP_SIZE as f32 * TILE_SIZE
-                || projectile_t.translation.y < -MAP_SIZE as f32 * TILE_SIZE
-            {
-                commands.entity(projectile_ent).despawn();
-            }
-
-            let dir = projectile_t.rotation * Vec3::X;
-
-            projectile_t.translation -= projectile.velocity() * dir;
-
+    for (enemy_ent, mut enemy, enemy_t) in enemies.iter_mut() {
+        for (mut projectile_t, mut projectile) in projectile_q.iter_mut() {
             let enemy_scale = enemy_t.scale.truncate() * SPRITE_SIZE; // TODO fix relative scale of enemies
 
             let collision = collide(
@@ -607,10 +618,6 @@ pub fn handle_projectiles(
                     0.,
                     rng.gen_range(-MAX_DEFLECTION_ANGLE..MAX_DEFLECTION_ANGLE),
                 );
-            }
-
-            if projectile.health <= 0 {
-                commands.entity(projectile_ent).despawn();
             }
         }
     }
