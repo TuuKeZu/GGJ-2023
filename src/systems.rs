@@ -6,6 +6,7 @@ use bevy::{
     prelude::*,
     sprite::collide_aabb::{collide, Collision},
 };
+use rand::{thread_rng, Rng};
 
 use crate::components::*;
 use crate::interpolation::ease;
@@ -149,6 +150,8 @@ pub fn spawn_level(
         // Move camera to middle of the map based on naive assumptions
         camera_transform.translation += (*end - *start).extend(0.) / 2.;
 
+        let mut rng = thread_rng();
+
         for x in -MAP_SIZE..MAP_SIZE {
             for y in -MAP_SIZE..MAP_SIZE {
                 commands.spawn(Tile::new(&asset_server).with_position(Vec3 {
@@ -156,6 +159,29 @@ pub fn spawn_level(
                     y: y as f32 * TILE_SIZE - TILE_SIZE / 2.,
                     z: 0.,
                 }));
+
+                let r = rng.gen_range(0..50);
+                if r < 5 {
+                    commands.spawn(
+                        Tile::new(&asset_server)
+                            .with_texture(asset_server.load("resources/grass.png"))
+                            .with_position(Vec3 {
+                                x: x as f32 * TILE_SIZE - TILE_SIZE / 2.,
+                                y: y as f32 * TILE_SIZE - TILE_SIZE / 2.,
+                                z: 0.5, // TODO name layer
+                            }),
+                    );
+                } else if r < 7 {
+                    commands.spawn(
+                        Tile::new(&asset_server)
+                            .with_texture(asset_server.load("resources/stone.png"))
+                            .with_position(Vec3 {
+                                x: x as f32 * TILE_SIZE - TILE_SIZE / 2.,
+                                y: y as f32 * TILE_SIZE - TILE_SIZE / 2.,
+                                z: 0.5,
+                            }),
+                    );
+                }
             }
         }
 
