@@ -89,6 +89,13 @@ impl Turret {
             Turret::Turret2x2 => "resources/turret-1.png",
         })
     }
+
+    pub fn gun(&self) -> Gun {
+        match self {
+            Turret::Turret1x1 => Gun::Gun1,
+            Turret::Turret2x2 => Gun::Gun2,
+        }
+    }
 }
 
 #[derive(Bundle)]

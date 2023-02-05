@@ -292,9 +292,15 @@ pub fn handle_place(
             )
             .with_scale(transform.scale * TILE_SIZE);
 
-            commands.spawn(
-                TurretBundle::new(*placeable, &asset_server).with_transform(target_transform),
+            let turret =
+                TurretBundle::new(*placeable, &asset_server).with_transform(target_transform);
+
+            let gun = GunBundle::new(turret.turret.gun(), &asset_server).with_transform(
+                target_transform.with_translation(target_transform.translation + vec3(0., 0., 1.)),
             );
+
+            commands.spawn(turret);
+            commands.spawn(gun);
         }
     }
 }
@@ -551,6 +557,9 @@ pub fn handle_projectiles(
 
             if collision.is_some() {
                 projectile.health -= 1;
+            }
+            if projectile.health <= 0 {
+                commands.entity(projectile_ent).despawn();
                 if projectile.health <= 0 {
                     commands.entity(projectile_ent).despawn();
                 }
