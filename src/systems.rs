@@ -167,7 +167,7 @@ pub fn spawn_level(
                             .with_position(Vec3 {
                                 x: x as f32 * TILE_SIZE - TILE_SIZE / 2.,
                                 y: y as f32 * TILE_SIZE - TILE_SIZE / 2.,
-                                z: 0.5, // TODO name layer
+                                z: (BACKGROUND_LAYER + PATH_LAYER) / 2., // TODO name layer
                             }),
                     );
                 } else if r < 7 {
@@ -177,7 +177,7 @@ pub fn spawn_level(
                             .with_position(Vec3 {
                                 x: x as f32 * TILE_SIZE - TILE_SIZE / 2.,
                                 y: y as f32 * TILE_SIZE - TILE_SIZE / 2.,
-                                z: 0.5,
+                                z: (BACKGROUND_LAYER + PATH_LAYER) / 2.,
                             }),
                     );
                 }
@@ -497,7 +497,6 @@ pub fn handle_gunners(
         }) {
             let delta = nearest_enemy.0.translation - gun_t.translation;
             if delta.length() > gun.range() {
-                // TODO scaling?
                 continue;
             }
             let angle = delta.y.atan2(delta.x);
