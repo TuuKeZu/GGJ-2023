@@ -34,7 +34,7 @@ pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     ));
 
     // Cursor
-    commands.spawn(Cursor::new());
+    commands.spawn((Cursor::new(), Collider(ColliderType::Cursor)));
 
     // Scoreboard
     let font = asset_server.load("fonts/ComicMono.ttf");
@@ -134,7 +134,7 @@ pub fn spawn_level(
         commands.spawn(
             Tile::new(&asset_server)
                 .with_texture(asset_server.load("resources/hole.png"))
-                .with_position(start.extend(1.)),
+                .with_position(start.extend(PATH_LAYER)),
         );
 
         let end = tiles.next_back().unwrap();
@@ -144,20 +144,19 @@ pub fn spawn_level(
         commands.spawn(
             PathTile::new(&asset_server)
                 .with_texture(asset_server.load("resources/hole.png"))
-                .with_position(end.extend(1.)),
+                .with_position(end.extend(PATH_LAYER)),
         );
 
         // Move camera to middle of the map based on naive assumptions
         camera_transform.translation += (*end - *start).extend(0.) / 2.;
 
-        let mut rng = thread_rng();
-
+        /*
         for x in -MAP_SIZE..MAP_SIZE {
             for y in -MAP_SIZE..MAP_SIZE {
                 commands.spawn(Tile::new(&asset_server).with_position(Vec3 {
-                    x: x as f32 * TILE_SIZE - TILE_SIZE / 2.,
-                    y: y as f32 * TILE_SIZE - TILE_SIZE / 2.,
-                    z: 0.,
+                    x: x as f32 * TILE_SIZE,
+                    y: y as f32 * TILE_SIZE,
+                    z: BACKGROUND_LAYER,
                 }));
 
                 let r = rng.gen_range(0..50);
@@ -184,7 +183,7 @@ pub fn spawn_level(
                 }
             }
         }
-
+        */
         for pos in tiles {
             path.positions.push_back(PathNode::new(*pos));
             commands.spawn(PathTile::new(&asset_server).with_position(pos.extend(PATH_LAYER)));
@@ -193,9 +192,10 @@ pub fn spawn_level(
         for (image_path, pos, blocks) in level.decor.into_iter() {
             let decor_asset = asset_server.load::<Image, _>(image_path);
             let decor_pos = vec2(pos[0], pos[1]) * TILE_SIZE + Vec2::splat(TILE_SIZE / 2.);
-            let tile = Tile::new_decor(decor_asset).with_position(decor_pos.extend(PATH_LAYER));
+            let tile =
+                Tile::new_decor(decor_asset).with_position(decor_pos.extend(PATH_LAYER + 0.1));
             if blocks {
-                commands.spawn((tile, Collider));
+                commands.spawn((tile, Collider(ColliderType::Decor)));
             } else {
                 commands.spawn(tile);
             }
@@ -207,7 +207,6 @@ pub fn spawn_level(
 
 pub fn move_cursor(
     mut query: Query<(&mut Transform, &mut GridCursor), (Without<Camera>, Without<Selected>)>,
-    child_q: Query<&Transform, With<Selected>>,
     camera_q: Query<&Transform, With<Camera>>,
     windows: Res<Windows>,
     time: Res<Time>,
@@ -216,21 +215,16 @@ pub fn move_cursor(
     let window_size = Vec2::new(window.width(), window.height());
     let camera_transform = camera_q.get_single().unwrap();
 
-    let sprite = if let Ok(sprite) = child_q.get_single() {
-        sprite.with_scale(sprite.scale * SPRITE_SIZE)
-    } else {
-        return;
-    };
-
     // TODO clean this ugly mess
     if let Some(cursor_position) = window.cursor_position() {
         let elapsed = time.elapsed().as_secs_f32();
         let (mut cursor_transform, mut grid_cursor) = query.get_single_mut().unwrap();
+
         let mut target_pos_grid =
             cursor_position - (window_size / 2.) + camera_transform.translation.truncate();
 
         // 1 round of magic
-        if sprite.scale.z as i32 % 2 == 0 {
+        if grid_cursor.selection_size.x as i32 % 2 == 0 {
             target_pos_grid -= Vec2::splat(TILE_SIZE / 2.);
         }
 
@@ -238,7 +232,7 @@ pub fn move_cursor(
             (target_pos_grid / TILE_SIZE).floor() * TILE_SIZE + Vec2::splat(TILE_SIZE / 2.);
 
         // 2 rounds of magic
-        if sprite.scale.z as i32 % 2 == 0 {
+        if grid_cursor.selection_size.x as i32 % 2 == 0 {
             target_pos_grid += Vec2::splat(TILE_SIZE / 2.);
         }
 
@@ -249,7 +243,7 @@ pub fn move_cursor(
         let dt = elapsed - grid_cursor.last_sample;
 
         let newp = prev_pos + delta * ease(dt / EASE_TIME);
-        cursor_transform.translation = newp.extend(0.);
+        cursor_transform.translation = newp.extend(CURSOR_LAYER);
         if grid_cursor.last_target_pos == newp {
             // if the cursor hasn't moved
         }
@@ -291,68 +285,61 @@ pub fn handle_place(
 
     if let Ok((transform, placeable)) = child_q.get_single() {
         if buttons.just_pressed(MouseButton::Left) {
-            let cursor_transform =
-                Transform::from_xyz(cursor.last_target_pos.x, cursor.last_target_pos.y, 0.)
-                    .with_scale(cursor_transform.scale * transform.scale);
+            let target_transform = Transform::from_xyz(
+                cursor.last_target_pos.x,
+                cursor.last_target_pos.y,
+                CURSOR_LAYER,
+            )
+            .with_scale(transform.scale * TILE_SIZE);
 
             commands.spawn(
-                TurretBundle::new(*placeable, &asset_server).with_transform(cursor_transform),
+                TurretBundle::new(*placeable, &asset_server).with_transform(target_transform),
             );
         }
     }
 }
 
 pub fn handle_collisions(
-    mut cursor_q: Query<&mut GridCursor>,
-    child_q: Query<(&Transform, &Turret), With<Selected>>,
+    mut cursor_q: Query<(&Transform, &mut GridCursor)>,
     collider_q: Query<
         (&Transform, &Collider),
-        (Without<GridCursor>, Without<Selected>, Without<Turret>),
+        (Without<GridCursor>, Without<Turret>, Without<Projectile>),
     >,
-    turret_q: Query<(&Transform, &Collider, &Turret), Without<Selected>>,
+    turret_q: Query<(&Transform, &Turret), (With<Collider>, Without<Selected>)>,
 ) {
-    let mut cursor = cursor_q.single_mut();
-    if let Ok((c_transform, turret)) = child_q.get_single() {
-        let cursor_transform = cursor.last_target_pos.extend(0.);
-        let c_transform = c_transform.with_scale((c_transform.scale * SPRITE_SIZE) * TILE_SIZE);
+    let (_cursor_transform, mut cursor) = cursor_q.single_mut();
 
-        let mut colliding = false;
+    let mut colliding = false;
 
-        for (collider_transform, _c, turret) in turret_q.iter() {
-            // check turret yes yes
-            let collider_transform =
-                collider_transform.with_scale(collider_transform.scale / SPRITE_SIZE);
+    for (collision_transform, _collider) in &collider_q {
+        let collision = collide(
+            cursor.last_target_pos.extend(0.),
+            Vec2::splat(TILE_SIZE * cursor.selection_size.x),
+            collision_transform.translation,
+            collision_transform.scale.xy(),
+        );
 
-            let collision = collide(
-                cursor_transform,
-                turret.scale(),
-                collider_transform.translation,
-                collider_transform.scale.truncate(),
-            );
-
-            if collision.is_some() {
-                colliding = true;
-                break;
-            }
+        if collision.is_some() {
+            colliding = true;
+            break;
         }
-
-        for (collider_transform, _c) in collider_q.iter() {
-            // check turret in cursor <=> something colliding
-            let collision = collide(
-                cursor_transform,
-                turret.scale(),
-                collider_transform.translation,
-                collider_transform.scale.truncate(),
-            );
-
-            if collision.is_some() {
-                colliding = true;
-                break;
-            }
-        }
-
-        cursor.can_place = !colliding;
     }
+
+    for (collision_transform, _turret) in &turret_q {
+        let collision = collide(
+            cursor.last_target_pos.extend(0.),
+            Vec2::splat(TILE_SIZE * cursor.selection_size.x),
+            collision_transform.translation,
+            collision_transform.scale.xy(),
+        );
+
+        if collision.is_some() {
+            colliding = true;
+            break;
+        }
+    }
+
+    cursor.can_place = !colliding;
 }
 
 pub fn handle_sell(
@@ -461,8 +448,9 @@ pub fn handle_shop(
             MenuItem::Turret2x2 => TurretBundle::new(Turret::Turret2x2, &asset_server),
         };
 
-        cursor.selection_size = new_turret.turret.scale();
+        cursor.selection_size = new_turret.turret.scale() * SPRITE_SIZE;
         let child = commands.spawn((new_turret, Selected)).id();
+
         commands.entity(cursor_ent).add_child(child);
     }
 }
@@ -527,7 +515,7 @@ pub fn handle_gunners(
                             )
                             .with_scale(Vec2::splat(2.0).extend(0.)),
                         ),
-                    Collider,
+                    Collider(ColliderType::Projectile),
                 ));
 
                 gun_state.last_shot = time.elapsed();
