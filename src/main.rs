@@ -35,6 +35,7 @@ pub const SPRITE_SIZE: f32 = 16.; // DO NOT TOUCH!!!!!
 
 pub const PATH_LAYER: f32 = 2.;
 pub const ENEMY_LAYER: f32 = 5.;
+pub const PROJECTILE_LAYER: f32 = 6.;
 
 pub type Texture = bevy::prelude::Handle<bevy::prelude::Image>;
 

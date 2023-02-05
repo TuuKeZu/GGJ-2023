@@ -7,7 +7,8 @@ use bevy::{math::*, prelude::*};
 use rand::{thread_rng, Rng};
 
 use crate::{
-    Texture, CURSOR_COLOR, ENEMY_LAYER, PATH_LAYER, SPRITE_SIZE, TILE_SIZE, TIME_STEP, WALL_COLOR,
+    Texture, CURSOR_COLOR, ENEMY_LAYER, PATH_LAYER, PROJECTILE_LAYER, SPRITE_SIZE, TILE_SIZE,
+    TIME_STEP, WALL_COLOR,
 };
 
 #[derive(serde::Deserialize, TypeUuid, Debug)]
@@ -233,9 +234,8 @@ impl ProjectileBundle {
     pub fn new(projectile: Projectile, asset_server: &Res<AssetServer>) -> Self {
         Self {
             sprite_bundle: SpriteBundle {
-                transform:
-                    Transform::from_xyz(0., 0., 10.) // TODO z layer?
-                        .with_scale(Vec2::splat(1. / SPRITE_SIZE).extend(0.0)),
+                transform: Transform::from_xyz(0., 0., PROJECTILE_LAYER)
+                    .with_scale(Vec2::splat(1. / SPRITE_SIZE).extend(0.)),
                 texture: projectile.sprite(asset_server),
                 ..default()
             },

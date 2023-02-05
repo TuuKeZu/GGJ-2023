@@ -450,7 +450,6 @@ pub fn handle_gunners(
                 .partial_cmp(&gun_t.translation.distance(enemy_t_b.translation))
                 .unwrap()
         }) {
-            // info!("{:?}", nearest_enemy.0.translation);
             let delta = nearest_enemy.0.translation - gun_t.translation;
             if delta.length() > gun.range() {
                 // TODO scaling?
@@ -463,12 +462,13 @@ pub fn handle_gunners(
                 commands.spawn((
                     ProjectileBundle::new(Projectile::new(ProjectileType::Knife, 1), &asset_server)
                         .with_transform(
-                            Transform::from_translation(gun_t.translation.truncate().extend(0.5))
-                                .with_rotation(
-                                    gun_t.rotation
-                                        * Quat::from_euler(EulerRot::XYZ, 0., 0., -PI / 2.),
-                                )
-                                .with_scale(Vec2::splat(2.0).extend(0.)),
+                            Transform::from_translation(
+                                gun_t.translation.truncate().extend(PROJECTILE_LAYER),
+                            )
+                            .with_rotation(
+                                gun_t.rotation * Quat::from_euler(EulerRot::XYZ, 0., 0., -PI / 2.),
+                            )
+                            .with_scale(Vec2::splat(2.0).extend(0.)),
                         ),
                     Collider,
                 ));
@@ -498,7 +498,6 @@ pub fn handle_projectiles(
         for (enemy_ent, enemy_t, _) in enemies.iter() {
             let enemy_scale = enemy_t.scale.truncate() * 16.0; // TODO fix relative scale of enemies
 
-            info!("{:?} {:?}", enemy_scale, enemy_t.translation);
             let collision = collide(
                 projectile_t.translation,
                 Vec2::ZERO,
